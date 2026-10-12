@@ -8,11 +8,71 @@ permissions:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+env:
+  CI: 'true'
+  NEXT_TELEMETRY_DISABLED: '1'
+  EXPO_NO_TELEMETRY: '1'
 jobs:
-  verify:
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # Unit tests run on PGlite and on this real PostgreSQL server.
+    timeout-minutes: 3
+    outputs:
+      format: ${{ steps.filter.outputs.format }}
+      quality: ${{ steps.filter.outputs.quality }}
+      unit: ${{ steps.filter.outputs.unit }}
+      database: ${{ steps.filter.outputs.database }}
+      web: ${{ steps.filter.outputs.web }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - run: node --test .github/scripts/ci.test.mjs
+      - id: filter
+        run: node .github/scripts/ci.mjs changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+  format:
+    needs: changes
+    if: needs.changes.outputs.format == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+      - run: pnpm format:check
+
+  quality:
+    needs: changes
+    if: needs.changes.outputs.quality == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+      - run: pnpm knip
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm --filter @calorie-donate/api typecheck
+
+  unit:
+    needs: changes
+    if: needs.changes.outputs.unit == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+      - run: pnpm test
+
+  database:
+    needs: changes
+    if: needs.changes.outputs.database == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
     services:
       postgres:
         image: postgres:17-alpine
@@ -28,34 +88,34 @@ jobs:
           --health-timeout 3s
           --health-retries 15
     env:
-      CI: 'true'
-      NEXT_TELEMETRY_DISABLED: '1'
-      EXPO_NO_TELEMETRY: '1'
-      EXPO_PUBLIC_API_URL: http://localhost:3000
       TEST_DATABASE_URL: postgres://calorie:calorie@localhost:5432/calorie_donate_test
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm lint
-      - run: pnpm format:check
-      - run: pnpm knip
-      - run: pnpm typecheck
-      - run: pnpm test
+      - uses: ./.github/actions/setup
+      - run: pnpm exec vitest run tests/unit/service.test.ts
       - name: Migrations apply with drizzle-kit
         run: pnpm db:migrate
         env:
           DATABASE_URL: postgres://calorie:calorie@localhost:5432/calorie_donate_test
       - name: Migrations match the schema
         run: pnpm db:generate && test -z "$(git status --porcelain apps/web/drizzle)"
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Browsers and OS libraries are preinstalled: no apt-get / install --with-deps.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+      - name: Check Playwright image matches the installed package
+        run: node -e "if (require('@playwright/test/package.json').version !== '1.64.0') throw new Error('Update the CI Playwright image to match the lockfile')"
+      - run: pnpm --filter @calorie-donate/web typecheck
       - run: pnpm build
-      - run: pnpm expo:check
-      - run: pnpm expo:export
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
@@ -65,3 +125,29 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  mobile:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPO_PUBLIC_API_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @calorie-donate/mobile typecheck
+      - run: pnpm expo:check
+      - run: pnpm expo:export
+
+  # Keep the original required check name; deliberate skips are successful.
+  verify:
+    needs: [changes, format, quality, unit, database, web, mobile]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: node .github/scripts/ci.mjs verify
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}

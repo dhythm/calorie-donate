@@ -13,9 +13,9 @@
   },
   "dependencies": {
     "@calorie-donate/api": "workspace:*",
-    "expo": "~57.0.27",
+    "expo": "~57.0.28",
     "expo-image-picker": "~57.0.20",
-    "expo-splash-screen": "~57.0.9",
+    "expo-splash-screen": "~57.0.10",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.3",

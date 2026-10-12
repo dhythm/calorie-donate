@@ -72,7 +72,7 @@ pnpm dev:demo  # 通常の開発サーバーを停止してから実行（Web、
 
 ## 採用バージョン
 
-2026-10-12 時点の公式資料・npm 安定版タグを確認し、Next.js 16.4.0、Expo SDK 57.0.27、React Native 0.86.3、React 19.2.3 を採用しました。両アプリの React を揃え、TypeScript は Expo 公式 TypeScript テンプレートに合わせて 6.0.3、ESLint は公式 Expo / Next.js 設定内のプラグインの peer 要件に合わせて 9.39.5（10 系未対応）を使います。pnpm は 10.34.7 に固定し、lockfile をコミットしています。
+2026-10-12 時点の公式資料・npm 安定版タグを確認し、Next.js 16.4.0、Expo SDK 57.0.28、React Native 0.86.3、React 19.2.3 を採用しました。両アプリの React を揃え、TypeScript は Expo 公式 TypeScript テンプレートに合わせて 6.0.3、ESLint は公式 Expo / Next.js 設定内のプラグインの peer 要件に合わせて 9.39.5（10 系未対応）を使います。pnpm は 10.34.7 に固定し、lockfile をコミットしています。
 
 - [Expo SDK の互換性表](https://docs.expo.dev/versions/latest/)（SDK 57: RN 0.86 / React 19.2.3 / Node 22.13 以上）
 - [Expo の pnpm モノレポ対応](https://docs.expo.dev/guides/monorepos/)（SDK 54 以降は isolated install 対応。Metro は自動構成）
@@ -162,6 +162,23 @@ pnpm expo:export    # iOS / Android の production JS bundle（ネイティブ�
 pnpm test:e2e      # build 済み Next.js を 127.0.0.1:3100 で起動
 ```
 
-Vitest は共有クライアント、日付・寄付計算・習慣集計、サービス（確定処理・編集制限・写真・習慣集計・同時書き込み。PGlite で常に、`TEST_DATABASE_URL` があれば実際の PostgreSQL でも）、写真推定（Claude 応答の整形・失敗時の扱い・サンプル推定）を検証します。Playwright はメモリ上の PGlite とサンプル推定でサーバーを起動し、初期設定 → 手入力 → 編集 → 写真推定 → 削除 → 履歴・寄付・設定の一連の流れ、モバイルと同じ絶対 URL クライアントからの実 API 通信、API の入力エラーを検証します。GitHub Actions は frozen install と上記チェックを毎 PR 実行します。
+Vitest は共有クライアント、日付・寄付計算・習慣集計、サービス（確定処理・編集制限・写真・習慣集計・同時書き込み。PGlite で常に、`TEST_DATABASE_URL` があれば実際の PostgreSQL でも）、写真推定（Claude 応答の整形・失敗時の扱い・サンプル推定）を検証します。Playwright はメモリ上の PGlite とサンプル推定でサーバーを起動し、初期設定 → 手入力 → 編集 → 写真推定 → 削除 → 履歴・寄付・設定の一連の流れ、モバイルと同じ絶対 URL クライアントからの実 API 通信、API の入力エラーを検証します。
+
+### GitHub Actions の実行範囲
+
+変更判定後、format・quality（Lint／Knip／共有とテストの型チェック）・unit（PGlite）・database（PostgreSQL／マイグレーション）・web（ビルド／E2E）・mobile（型チェック／Expo検証／export）を並列実行します。各ジョブはpnpmストアをキャッシュし、依存関係はfrozen installします。
+
+| 変更                                              | 実行する主なチェック                 |
+| ------------------------------------------------- | ------------------------------------ |
+| READMEなどの文書のみ                              | format                               |
+| 画面プレビュー画像、`.gitignore`のみ              | 変更判定と結果確認のみ               |
+| `apps/mobile/`                                    | format、quality、mobile              |
+| Web画面、E2Eテスト                                | format、quality、web                 |
+| Webサーバー、APIルート、DBスキーマ、シード        | format、quality、unit、database、web |
+| 共有API、依存関係、共通設定、CI、未分類のファイル | 全ジョブ                             |
+
+PRはmerge-baseからheadまで、mainへのpushは前回pushからの全変更を判定します。削除・移動も対象です。Playwrightはバージョンを合わせた公式コンテナを使い、毎回のブラウザ／OSライブラリのインストールを省きます。WebのビルドとE2Eは同じジョブで行い、ネイティブの検証を待ちません。
+
+ブランチ保護の必須チェックは引き続き `verify` を指定できます。必要なジョブの失敗・キャンセル・想定外のスキップは失敗として扱い、対象外のジョブだけ省略します。変更判定と結果集約のテストは `node --test .github/scripts/ci.test.mjs` で実行できます。
 
 Expo export / 型チェックはネイティブ端末での実行を保証しません。OS のネットワーク制約や実機 LAN 接続の確認は、上記の起動手順で端末を使って行います。ネイティブ配布ビルド、EAS、DB、認証、クラウドリソースは今回の範囲に含めていません。
