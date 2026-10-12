@@ -1,4 +1,5 @@
 export const colors = {
+  brandYellow: '#f9bf13',
   background: '#f4f7f6',
   surface: '#ffffff',
   text: '#143b32',

@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
 const links = [
@@ -17,11 +18,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="shell">
       <header className="topbar">
-        <Link href="/" className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            ♡
-          </span>
-          Calorie Donate
+        <Link href="/" className="brand" aria-label="Calorie Donate ホーム">
+          <Image
+            src="/brand/wordmark.svg"
+            alt="Calorie Donate"
+            width={1008}
+            height={288}
+            className="brand-wordmark"
+            priority
+          />
         </Link>
         <nav aria-label="メイン" className="nav">
           {links.map((link) => (
