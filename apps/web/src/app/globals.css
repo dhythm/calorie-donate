@@ -1,0 +1,39 @@
+body {
+  margin: 0;
+  background: #f4f7f6;
+  color: #143b32;
+  font-family: system-ui, sans-serif;
+}
+main {
+  max-width: 640px;
+  margin: 12vh auto;
+  padding: 32px;
+}
+h1 {
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  letter-spacing: -0.04em;
+}
+p {
+  line-height: 1.8;
+}
+.eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+}
+button {
+  border: 0;
+  border-radius: 8px;
+  background: #176b54;
+  color: white;
+  padding: 14px 20px;
+  font: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+button:focus-visible {
+  outline: 3px solid #143b32;
+  outline-offset: 4px;
+}

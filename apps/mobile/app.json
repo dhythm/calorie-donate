@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Calorie Donate",
+    "slug": "calorie-donate",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "ios": {
+      "supportsTablet": true
+    },
+    "platforms": ["ios", "android"],
+    "updates": {
+      "enabled": false
+    }
+  }
+}

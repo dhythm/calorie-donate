@@ -1,0 +1,24 @@
+{
+  "name": "@calorie-donate/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@calorie-donate/api": "workspace:*",
+    "next": "16.4.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "eslint-config-next": "16.4.0",
+    "@types/react": "~19.2.2",
+    "@types/react-dom": "~19.2.0"
+  }
+}

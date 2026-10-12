@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["tests/**/*.ts", "*.config.ts"],
+      "project": ["tests/**/*.ts", "*.config.ts", "*.mjs"]
+    },
+    "apps/web": {
+      "entry": [
+        "src/app/**/{page,layout,route}.tsx",
+        "src/app/**/route.ts",
+        "*.config.*"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "*.config.*"]
+    },
+    "apps/mobile": {
+      "entry": ["App.tsx", "*.config.*"],
+      "project": ["**/*.{ts,tsx,mjs}"]
+    },
+    "packages/api": {
+      "project": ["src/**/*.ts"]
+    }
+  }
+}
