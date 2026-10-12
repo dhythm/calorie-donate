@@ -1,29 +1,40 @@
 import 'server-only';
 import {
   addDays,
+  buildHabitStats,
   DEFAULT_TIME_ZONE,
   dateKeyInTimeZone,
   dateRange,
+  IMAGE_MAX_BYTES,
   isEditableDay,
-  isSettleableDay,
   mealInputSchema,
+  mealTypes,
+  oldestEditableDay,
+  photoUploadSchema,
   profileInputSchema,
   summarizeDay,
   type ApiErrorCode,
   type DayDetail,
   type DaySummary,
-  type DonationEntry,
   type DonationLedger,
   type DonationTotals,
+  type HabitDay,
+  type HabitStats,
   type History,
   type Meal,
   type MealInput,
+  type MealType,
   type Overview,
+  type Photo,
+  type PhotoUpload,
   type Profile,
   type ProfileInput,
 } from '@calorie-donate/api';
+import { and, asc, desc, eq, gt, gte, lt, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Store, StoreData } from './store';
+import type { Database } from './db/client';
+import { mealPhotos, meals, profiles, settlements } from './db/schema';
+import { detectImageType } from './image';
 
 export class ServiceError extends Error {
   constructor(
@@ -36,115 +47,52 @@ export class ServiceError extends Error {
   }
 }
 
+/** The only user until accounts exist; every row is already scoped by it. */
+const LOCAL_USER_ID = 'local';
 const HISTORY_MAX_DAYS = 90;
+const STATS_MIN_DAYS = 7;
+const STATS_MAX_DAYS = 371;
+/** Photos uploaded but never attached to a meal are dropped after a day. */
+const ORPHAN_PHOTO_MS = 24 * 60 * 60 * 1000;
 
-function requireProfile(data: StoreData): Profile {
-  if (!data.profile) {
+type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+type Executor = Database | Tx;
+type MealRow = typeof meals.$inferSelect;
+type DayTotals = {
+  consumedKcal: number;
+  mealCount: number;
+  byMealType: Record<MealType, number>;
+};
+type SettlementRow = typeof settlements.$inferSelect;
+
+function parse<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
+  const result = schema.safeParse(input);
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    throw new ServiceError(
+      'INVALID_REQUEST',
+      400,
+      issue
+        ? `${issue.path.map(String).join('.') || 'body'}: ${issue.message}`
+        : 'Invalid request.',
+    );
+  }
+  return result.data;
+}
+
+const isUuid = (id: string) => z.uuid().safeParse(id).success;
+const notFound = (what: string) =>
+  new ServiceError('NOT_FOUND', 404, `${what} not found.`);
+
+function requireProfile(profile: Profile | null): Profile {
+  if (!profile) {
     throw new ServiceError(
       'PROFILE_REQUIRED',
       409,
       'Set a daily calorie target before logging meals.',
     );
   }
-  return data.profile;
-}
-
-const consumedOn = (data: StoreData, date: string) =>
-  data.meals
-    .filter((meal) => meal.date === date)
-    .reduce((sum, meal) => sum + meal.calories, 0);
-
-/** Days whose overage should be recorded as a donation but is not yet. */
-function unsettledDays(data: StoreData, today: string): string[] {
-  const settled = new Set(data.settlements.map((entry) => entry.date));
-  const days = new Set(
-    data.meals
-      .map((meal) => meal.date)
-      .filter((date) => isSettleableDay(date, today) && !settled.has(date)),
-  );
-  return [...days].sort();
-}
-
-/** Lock past days and record each day's overage in the donation ledger. */
-function settle(data: StoreData, today: string, now: Date) {
-  const profile = data.profile;
-  if (!profile) return;
-  for (const date of unsettledDays(data, today)) {
-    const day = summarizeDay({
-      date,
-      today,
-      targetKcal: profile.dailyTargetKcal,
-      consumedKcal: consumedOn(data, date),
-      yenPer100Kcal: profile.donationYenPer100Kcal,
-      settled: true,
-    });
-    data.settlements.push({
-      date,
-      targetKcal: day.targetKcal,
-      consumedKcal: day.consumedKcal,
-      overKcal: day.overKcal,
-      donationYen: day.donationYen,
-      donationYenPer100Kcal: day.donationYenPer100Kcal,
-      settledAt: now.toISOString(),
-    });
-  }
-  data.settlements.sort((a, b) => a.date.localeCompare(b.date));
-}
-
-function summarize(
-  data: StoreData,
-  profile: Profile,
-  date: string,
-  today: string,
-): DaySummary {
-  const entry = data.settlements.find((settled) => settled.date === date);
-  if (entry) {
-    return summarizeDay({
-      date,
-      today,
-      targetKcal: entry.targetKcal,
-      consumedKcal: entry.consumedKcal,
-      yenPer100Kcal: entry.donationYenPer100Kcal,
-      settled: true,
-    });
-  }
-  return summarizeDay({
-    date,
-    today,
-    targetKcal: profile.dailyTargetKcal,
-    consumedKcal: consumedOn(data, date),
-    yenPer100Kcal: profile.donationYenPer100Kcal,
-    // A past day with no meals has nothing to record but is still closed.
-    settled: isSettleableDay(date, today),
-  });
-}
-
-function detail(
-  data: StoreData,
-  profile: Profile,
-  date: string,
-  today: string,
-): DayDetail {
-  return {
-    ...summarize(data, profile, date, today),
-    meals: data.meals
-      .filter((meal) => meal.date === date)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-  };
-}
-
-function totals(data: StoreData, profile: Profile, today: string) {
-  const over = data.settlements.filter((entry) => entry.donationYen > 0);
-  const pendingYen = dateRange(addDays(today, -1), today)
-    .map((date) => summarize(data, profile, date, today))
-    .filter((day) => day.status === 'open')
-    .reduce((sum, day) => sum + day.donationYen, 0);
-  return {
-    totalYen: over.reduce((sum, entry) => sum + entry.donationYen, 0),
-    totalOverKcal: over.reduce((sum, entry) => sum + entry.overKcal, 0),
-    daysOver: over.length,
-    pendingYen,
-  } satisfies DonationTotals;
+  return profile;
 }
 
 function assertViewableDate(date: string, today: string) {
@@ -167,63 +115,276 @@ function assertEditable(date: string, today: string) {
   }
 }
 
-function parse<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
-  const result = schema.safeParse(input);
-  if (!result.success) {
-    const issue = result.error.issues[0];
-    throw new ServiceError(
-      'INVALID_REQUEST',
-      400,
-      issue
-        ? `${issue.path.map(String).join('.') || 'body'}: ${issue.message}`
-        : 'Invalid request.',
-    );
+const toMeal = (row: MealRow): Meal => ({
+  id: row.id,
+  date: row.date,
+  mealType: row.mealType as MealType,
+  name: row.name,
+  calories: row.calories,
+  source: row.source as Meal['source'],
+  items: row.items,
+  note: row.note,
+  photoId: row.photoId,
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
+});
+
+const emptyTotals = (): DayTotals => ({
+  consumedKcal: 0,
+  mealCount: 0,
+  byMealType: { breakfast: 0, lunch: 0, dinner: 0, snack: 0 },
+});
+
+function summarize(
+  date: string,
+  today: string,
+  profile: Profile,
+  totals: DayTotals | undefined,
+  settled: SettlementRow | undefined,
+): DaySummary {
+  if (settled) {
+    return summarizeDay({
+      date,
+      today,
+      targetKcal: settled.targetKcal,
+      consumedKcal: settled.consumedKcal,
+      yenPer100Kcal: settled.donationYenPer100Kcal,
+      settled: true,
+    });
   }
-  return result.data;
+  return summarizeDay({
+    date,
+    today,
+    targetKcal: profile.dailyTargetKcal,
+    consumedKcal: totals?.consumedKcal ?? 0,
+    yenPer100Kcal: profile.donationYenPer100Kcal,
+    // A past day with no meals has nothing to record but is still closed.
+    settled: !isEditableDay(date, today),
+  });
 }
 
 export function createService(
-  store: Store,
+  db: Database,
   clock: () => Date = () => new Date(),
+  userId: string = LOCAL_USER_ID,
 ) {
   const todayFor = (profile: Profile | null, now: Date) =>
     dateKeyInTimeZone(now, profile?.timeZone ?? DEFAULT_TIME_ZONE);
 
-  /** Read the store, settling past days first when there is work to do. */
-  async function readSettled() {
-    const now = clock();
-    let data = await store.read();
-    const today = todayFor(data.profile, now);
-    if (data.profile && unsettledDays(data, today).length > 0) {
-      data = await store.update((draft) => {
-        settle(draft, todayFor(draft.profile, now), now);
-        return draft;
-      });
-    }
-    return { data, today: todayFor(data.profile, now), now };
+  async function loadProfile(tx: Executor): Promise<Profile | null> {
+    const [row] = await tx
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, userId));
+    if (!row) return null;
+    return {
+      displayName: row.displayName,
+      dailyTargetKcal: row.dailyTargetKcal,
+      donationYenPer100Kcal: row.donationYenPer100Kcal,
+      timeZone: row.timeZone,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
   }
 
+  /** Lock past days and record each day's overage in the donation ledger. */
+  async function settle(tx: Executor, profile: Profile, today: string) {
+    const pending = await tx
+      .select({
+        date: meals.date,
+        consumedKcal: sql<number>`sum(${meals.calories})::int`,
+      })
+      .from(meals)
+      .where(
+        and(
+          eq(meals.userId, userId),
+          lt(meals.date, oldestEditableDay(today)),
+          sql`not exists (select 1 from ${settlements} where ${settlements.userId} = ${meals.userId} and ${settlements.date} = ${meals.date})`,
+        ),
+      )
+      .groupBy(meals.date);
+    if (pending.length === 0) return;
+    await tx
+      .insert(settlements)
+      .values(
+        pending.map(({ date, consumedKcal }) => {
+          const day = summarizeDay({
+            date,
+            today,
+            targetKcal: profile.dailyTargetKcal,
+            consumedKcal,
+            yenPer100Kcal: profile.donationYenPer100Kcal,
+            settled: true,
+          });
+          return {
+            userId,
+            date,
+            targetKcal: day.targetKcal,
+            consumedKcal: day.consumedKcal,
+            overKcal: day.overKcal,
+            donationYen: day.donationYen,
+            donationYenPer100Kcal: day.donationYenPer100Kcal,
+          };
+        }),
+      )
+      .onConflictDoNothing();
+  }
+
+  /** Profile and today's date, with any newly closed days settled. */
+  async function current() {
+    const now = clock();
+    const profile = await loadProfile(db);
+    const today = todayFor(profile, now);
+    if (profile) await settle(db, profile, today);
+    return { profile, today };
+  }
+
+  /** Per-day meal totals and ledger rows for an inclusive date range. */
+  async function loadRange(from: string, to: string) {
+    const rows = await db
+      .select({
+        date: meals.date,
+        mealType: meals.mealType,
+        calories: sql<number>`sum(${meals.calories})::int`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(meals)
+      .where(
+        and(
+          eq(meals.userId, userId),
+          gte(meals.date, from),
+          lte(meals.date, to),
+        ),
+      )
+      .groupBy(meals.date, meals.mealType);
+    const totals = new Map<string, DayTotals>();
+    for (const row of rows) {
+      const day = totals.get(row.date) ?? emptyTotals();
+      day.consumedKcal += row.calories;
+      day.mealCount += row.count;
+      if ((mealTypes as readonly string[]).includes(row.mealType)) {
+        day.byMealType[row.mealType as MealType] += row.calories;
+      }
+      totals.set(row.date, day);
+    }
+    const ledger = await db
+      .select()
+      .from(settlements)
+      .where(
+        and(
+          eq(settlements.userId, userId),
+          gte(settlements.date, from),
+          lte(settlements.date, to),
+        ),
+      );
+    return {
+      totals,
+      settled: new Map(ledger.map((entry) => [entry.date, entry])),
+    };
+  }
+
+  async function summaries(
+    profile: Profile,
+    today: string,
+    from: string,
+    to: string = today,
+  ) {
+    const range = await loadRange(from, to);
+    return dateRange(from, to).map((date) => ({
+      summary: summarize(
+        date,
+        today,
+        profile,
+        range.totals.get(date),
+        range.settled.get(date),
+      ),
+      totals: range.totals.get(date) ?? emptyTotals(),
+    }));
+  }
+
+  async function donationTotals(
+    profile: Profile,
+    today: string,
+  ): Promise<DonationTotals> {
+    const [ledger] = await db
+      .select({
+        totalYen: sql<number>`coalesce(sum(${settlements.donationYen}), 0)::int`,
+        totalOverKcal: sql<number>`coalesce(sum(${settlements.overKcal}), 0)::int`,
+        daysOver: sql<number>`count(*)::int`,
+      })
+      .from(settlements)
+      .where(
+        and(eq(settlements.userId, userId), gt(settlements.donationYen, 0)),
+      );
+    const open = await summaries(profile, today, addDays(today, -1));
+    return {
+      totalYen: ledger?.totalYen ?? 0,
+      totalOverKcal: ledger?.totalOverKcal ?? 0,
+      daysOver: ledger?.daysOver ?? 0,
+      pendingYen: open
+        .filter(({ summary }) => summary.status === 'open')
+        .reduce((sum, { summary }) => sum + summary.donationYen, 0),
+    };
+  }
+
+  async function detail(
+    profile: Profile,
+    date: string,
+    today: string,
+  ): Promise<DayDetail> {
+    const [day] = await summaries(profile, today, date, date);
+    const rows = await db
+      .select()
+      .from(meals)
+      .where(and(eq(meals.userId, userId), eq(meals.date, date)))
+      .orderBy(asc(meals.createdAt));
+    return { ...day!.summary, meals: rows.map(toMeal) };
+  }
+
+  /** Run a meal change in a transaction against an editable day. */
   async function changeMeals<T>(
-    change: (data: StoreData, today: string, now: Date) => T,
+    change: (tx: Tx, today: string) => Promise<T>,
   ): Promise<T> {
     const now = clock();
-    return store.update((data) => {
-      const today = todayFor(requireProfile(data), now);
-      settle(data, today, now);
-      return change(data, today, now);
+    return db.transaction(async (tx) => {
+      const profile = requireProfile(await loadProfile(tx));
+      const today = todayFor(profile, now);
+      await settle(tx, profile, today);
+      return change(tx, today);
     });
   }
 
-  function findMeal(data: StoreData, id: string): Meal {
-    const meal = data.meals.find((candidate) => candidate.id === id);
-    if (!meal) throw new ServiceError('NOT_FOUND', 404, 'Meal not found.');
-    return meal;
+  async function findMeal(tx: Executor, id: string): Promise<MealRow> {
+    if (!isUuid(id)) throw notFound('Meal');
+    const [row] = await tx
+      .select()
+      .from(meals)
+      .where(and(eq(meals.userId, userId), eq(meals.id, id)));
+    if (!row) throw notFound('Meal');
+    return row;
+  }
+
+  async function assertPhoto(tx: Executor, photoId: string | null) {
+    if (!photoId) return;
+    const [row] = await tx
+      .select({ id: mealPhotos.id })
+      .from(mealPhotos)
+      .where(and(eq(mealPhotos.userId, userId), eq(mealPhotos.id, photoId)));
+    if (!row) {
+      throw new ServiceError('INVALID_REQUEST', 400, 'photoId: unknown photo.');
+    }
+  }
+
+  async function deletePhoto(tx: Executor, photoId: string | null) {
+    if (!photoId) return;
+    await tx
+      .delete(mealPhotos)
+      .where(and(eq(mealPhotos.userId, userId), eq(mealPhotos.id, photoId)));
   }
 
   return {
     async overview(date?: string): Promise<Overview> {
-      const { data, today } = await readSettled();
-      const profile = data.profile;
+      const { profile, today } = await current();
       if (!profile) {
         return { today, profile: null, day: null, totals: null };
       }
@@ -232,88 +393,190 @@ export function createService(
       return {
         today,
         profile,
-        day: detail(data, profile, day, today),
-        totals: totals(data, profile, today),
+        day: await detail(profile, day, today),
+        totals: await donationTotals(profile, today),
       };
     },
 
     async saveProfile(input: ProfileInput): Promise<Profile> {
       const values = parse(profileInputSchema, input);
-      const now = clock().toISOString();
-      return store.update((data) => {
-        data.profile = {
-          ...values,
-          createdAt: data.profile?.createdAt ?? now,
-          updatedAt: now,
-        };
-        return data.profile;
-      });
+      const now = clock();
+      await db
+        .insert(profiles)
+        .values({ userId, ...values, createdAt: now, updatedAt: now })
+        .onConflictDoUpdate({
+          target: profiles.userId,
+          set: { ...values, updatedAt: now },
+        });
+      return requireProfile(await loadProfile(db));
     },
 
     async day(date: string): Promise<DayDetail> {
-      const { data, today } = await readSettled();
-      const profile = requireProfile(data);
+      const { profile, today } = await current();
       assertViewableDate(date, today);
-      return detail(data, profile, date, today);
+      return detail(requireProfile(profile), date, today);
     },
 
     async history(days: number): Promise<History> {
-      const { data, today } = await readSettled();
-      const profile = requireProfile(data);
+      const { profile, today } = await current();
       const count = Math.min(Math.max(1, Math.trunc(days)), HISTORY_MAX_DAYS);
-      return {
-        days: dateRange(addDays(today, -(count - 1)), today)
-          .reverse()
-          .map((date) => summarize(data, profile, date, today)),
-      };
+      const rows = await summaries(
+        requireProfile(profile),
+        today,
+        addDays(today, -(count - 1)),
+      );
+      return { days: rows.map(({ summary }) => summary).reverse() };
+    },
+
+    async stats(days: number): Promise<HabitStats> {
+      const { profile, today } = await current();
+      const count = Math.min(
+        Math.max(STATS_MIN_DAYS, Math.trunc(days)),
+        STATS_MAX_DAYS,
+      );
+      const rows = await summaries(
+        requireProfile(profile),
+        today,
+        addDays(today, -(count - 1)),
+      );
+      return buildHabitStats(
+        today,
+        rows.map(({ summary, totals }): HabitDay => ({
+          date: summary.date,
+          targetKcal: summary.targetKcal,
+          consumedKcal: summary.consumedKcal,
+          overKcal: summary.overKcal,
+          donationYen: summary.donationYen,
+          mealCount: totals.mealCount,
+          byMealType: totals.byMealType,
+        })),
+      );
     },
 
     async meal(id: string): Promise<Meal> {
-      const { data } = await readSettled();
-      return findMeal(data, id);
+      return toMeal(await findMeal(db, id));
     },
 
     async createMeal(input: MealInput): Promise<Meal> {
       const values = parse(mealInputSchema, input);
-      return changeMeals((data, today, now) => {
+      return changeMeals(async (tx, today) => {
         assertEditable(values.date, today);
-        const meal: Meal = {
-          ...values,
-          id: crypto.randomUUID(),
-          createdAt: now.toISOString(),
-          updatedAt: now.toISOString(),
-        };
-        data.meals.push(meal);
-        return meal;
+        await assertPhoto(tx, values.photoId);
+        const [row] = await tx
+          .insert(meals)
+          .values({ ...values, userId })
+          .returning();
+        return toMeal(row!);
       });
     },
 
     async updateMeal(id: string, input: MealInput): Promise<Meal> {
       const values = parse(mealInputSchema, input);
-      return changeMeals((data, today, now) => {
-        const meal = findMeal(data, id);
+      return changeMeals(async (tx, today) => {
+        const meal = await findMeal(tx, id);
         assertEditable(meal.date, today);
         assertEditable(values.date, today);
-        Object.assign(meal, values, { updatedAt: now.toISOString() });
-        return meal;
+        await assertPhoto(tx, values.photoId);
+        const [row] = await tx
+          .update(meals)
+          .set({ ...values, updatedAt: new Date() })
+          .where(eq(meals.id, meal.id))
+          .returning();
+        if (meal.photoId !== values.photoId)
+          await deletePhoto(tx, meal.photoId);
+        return toMeal(row!);
       });
     },
 
     async deleteMeal(id: string): Promise<void> {
-      await changeMeals((data, today) => {
-        const meal = findMeal(data, id);
+      await changeMeals(async (tx, today) => {
+        const meal = await findMeal(tx, id);
         assertEditable(meal.date, today);
-        data.meals = data.meals.filter((candidate) => candidate.id !== id);
+        await tx.delete(meals).where(eq(meals.id, meal.id));
+        await deletePhoto(tx, meal.photoId);
       });
     },
 
     async donations(): Promise<DonationLedger> {
-      const { data, today } = await readSettled();
-      const profile = requireProfile(data);
-      const entries: DonationEntry[] = data.settlements
-        .filter((entry) => entry.donationYen > 0)
-        .sort((a, b) => b.date.localeCompare(a.date));
-      return { totals: totals(data, profile, today), entries };
+      const { profile, today } = await current();
+      const entries = await db
+        .select()
+        .from(settlements)
+        .where(
+          and(eq(settlements.userId, userId), gt(settlements.donationYen, 0)),
+        )
+        .orderBy(desc(settlements.date));
+      return {
+        totals: await donationTotals(requireProfile(profile), today),
+        entries: entries.map((entry) => ({
+          date: entry.date,
+          targetKcal: entry.targetKcal,
+          consumedKcal: entry.consumedKcal,
+          overKcal: entry.overKcal,
+          donationYen: entry.donationYen,
+          donationYenPer100Kcal: entry.donationYenPer100Kcal,
+          settledAt: entry.settledAt.toISOString(),
+        })),
+      };
+    },
+
+    /** Store a meal photo. The image bytes decide its type, not the client. */
+    async uploadPhoto(input: PhotoUpload): Promise<Photo> {
+      const values = parse(photoUploadSchema, input);
+      const data = Buffer.from(values.imageBase64, 'base64');
+      const contentType = detectImageType(data);
+      if (!contentType || data.byteLength > IMAGE_MAX_BYTES) {
+        throw new ServiceError(
+          'INVALID_REQUEST',
+          400,
+          'Send a JPEG, PNG, WebP or GIF image of at most 5 MB.',
+        );
+      }
+      const now = clock();
+      const cutoff = new Date(now.getTime() - ORPHAN_PHOTO_MS);
+      await db
+        .delete(mealPhotos)
+        .where(
+          and(
+            eq(mealPhotos.userId, userId),
+            lt(mealPhotos.createdAt, cutoff),
+            sql`not exists (select 1 from ${meals} where ${meals.photoId} = ${mealPhotos.id})`,
+          ),
+        );
+      const [row] = await db
+        .insert(mealPhotos)
+        .values({
+          userId,
+          contentType,
+          byteSize: data.byteLength,
+          data,
+          createdAt: now,
+        })
+        .returning({
+          id: mealPhotos.id,
+          contentType: mealPhotos.contentType,
+          byteSize: mealPhotos.byteSize,
+          createdAt: mealPhotos.createdAt,
+        });
+      return {
+        id: row!.id,
+        contentType,
+        byteSize: row!.byteSize,
+        createdAt: row!.createdAt.toISOString(),
+      };
+    },
+
+    async photo(id: string) {
+      if (!isUuid(id)) throw notFound('Photo');
+      const [row] = await db
+        .select({ contentType: mealPhotos.contentType, data: mealPhotos.data })
+        .from(mealPhotos)
+        .where(and(eq(mealPhotos.userId, userId), eq(mealPhotos.id, id)));
+      if (!row) throw notFound('Photo');
+      return {
+        contentType: row.contentType as PhotoUpload['mediaType'],
+        data: Buffer.from(row.data),
+      };
     },
   };
 }

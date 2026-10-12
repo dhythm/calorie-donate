@@ -2,11 +2,11 @@ import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import type { Estimate, EstimateRequest } from '@calorie-donate/api';
+import type { Estimate, PhotoUpload } from '@calorie-donate/api';
 import { ServiceError } from './service';
 
 export interface CalorieEstimator {
-  estimate(image: EstimateRequest): Promise<Estimate>;
+  estimate(image: PhotoUpload): Promise<Estimate>;
 }
 
 const DEFAULT_MODEL = 'claude-opus-5-5';

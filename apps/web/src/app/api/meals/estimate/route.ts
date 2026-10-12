@@ -1,9 +1,9 @@
 import 'server-only';
 import { estimateRequestSchema } from '@calorie-donate/api';
-import { getEstimator, handle, readJson } from '@/server/http';
+import { getEstimator, getService, handle, readJson } from '@/server/http';
 import { ServiceError } from '@/server/service';
 
-/** Estimate calories from a meal photo. Nothing is saved until confirmed. */
+/** Estimate calories from an uploaded meal photo. Nothing is saved. */
 export async function POST(request: Request) {
   return handle(async () => {
     const input = estimateRequestSchema.safeParse(await readJson(request));
@@ -11,9 +11,13 @@ export async function POST(request: Request) {
       throw new ServiceError(
         'INVALID_REQUEST',
         400,
-        'Send a JPEG, PNG, WebP or GIF image of at most 5 MB as base64.',
+        'photoId must be the id of an uploaded photo.',
       );
     }
-    return getEstimator().estimate(input.data);
+    const photo = await (await getService()).photo(input.data.photoId);
+    return getEstimator().estimate({
+      mediaType: photo.contentType,
+      imageBase64: photo.data.toString('base64'),
+    });
   });
 }

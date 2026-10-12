@@ -4,6 +4,6 @@ import { getService, handle, readJson } from '@/server/http';
 
 export async function PUT(request: Request) {
   return handle(async () =>
-    getService().saveProfile((await readJson(request)) as ProfileInput),
+    (await getService()).saveProfile((await readJson(request)) as ProfileInput),
   );
 }

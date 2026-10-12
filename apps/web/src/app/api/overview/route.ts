@@ -7,5 +7,5 @@ export async function GET(request: Request) {
   if (date !== null && !dateKeySchema.safeParse(date).success) {
     return errorResponse('INVALID_REQUEST', 400, 'date must be YYYY-MM-DD.');
   }
-  return handle(() => getService().overview(date ?? undefined));
+  return handle(async () => (await getService()).overview(date ?? undefined));
 }

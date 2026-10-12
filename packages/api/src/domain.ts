@@ -1,4 +1,4 @@
-import type { DaySummary, MealType } from './schemas';
+import type { DaySummary, HabitDay, HabitStats, MealType } from './schemas';
 
 /**
  * Meals can be added or changed for today and yesterday (so a late dinner can
@@ -116,9 +116,7 @@ export function formatDateLabel(date: string, today: string): string {
   if (date === today) return '今日';
   if (date === addDays(today, -1)) return '昨日';
   const [, month, day] = date.split('-');
-  const weekday = ['日', '月', '火', '水', '木', '金', '土'][
-    new Date(`${date}T00:00:00Z`).getUTCDay()
-  ];
+  const weekday = weekdayLabels[new Date(`${date}T00:00:00Z`).getUTCDay()];
   return `${Number(month)}/${Number(day)}（${weekday}）`;
 }
 
@@ -127,3 +125,70 @@ export function progressRatio(consumedKcal: number, targetKcal: number) {
   if (targetKcal <= 0) return 0;
   return Math.min(1, consumedKcal / targetKcal);
 }
+
+/** Longest run, and the run ending at the newest day, of days matching `hit`. */
+function runs<T>(days: T[], hit: (day: T) => boolean, skipNewest: boolean) {
+  let best = 0;
+  let run = 0;
+  for (const day of days) {
+    run = hit(day) ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+  // Today is not over yet: an unlogged today keeps yesterday's streak alive.
+  const recent = skipNewest ? days.slice(0, -1) : days;
+  let current = 0;
+  for (let i = recent.length - 1; i >= 0 && hit(recent[i]!); i--) current++;
+  return { best, current };
+}
+
+/** Streaks, averages and breakdowns for habit charts. `days` oldest first. */
+export function buildHabitStats(today: string, days: HabitDay[]): HabitStats {
+  const logged = days.filter((day) => day.mealCount > 0);
+  const within = (day: HabitDay) => day.mealCount > 0 && day.overKcal === 0;
+  const newest = days.at(-1);
+  const skipNewest = newest?.date === today && newest.mealCount === 0;
+  const logging = runs(days, (day) => day.mealCount > 0, skipNewest);
+  const target = runs(days, within, skipNewest);
+  const average = (values: number[]) =>
+    values.length === 0
+      ? 0
+      : Math.round(values.reduce((sum, v) => sum + v, 0) / values.length);
+  const mealAverage = (type: MealType) =>
+    average(logged.map((day) => day.byMealType[type]));
+  return {
+    today,
+    days,
+    streaks: {
+      currentLogging: logging.current,
+      bestLogging: logging.best,
+      currentWithinTarget: target.current,
+      bestWithinTarget: target.best,
+    },
+    summary: {
+      loggedDays: logged.length,
+      withinTargetDays: logged.filter(within).length,
+      achievementRate:
+        logged.length === 0 ? 0 : logged.filter(within).length / logged.length,
+      averageKcal: average(logged.map((day) => day.consumedKcal)),
+      donationYen: days.reduce((sum, day) => sum + day.donationYen, 0),
+    },
+    weekdays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => {
+      const matching = logged.filter(
+        (day) => new Date(`${day.date}T00:00:00Z`).getUTCDay() === weekday,
+      );
+      return {
+        weekday,
+        averageKcal: average(matching.map((day) => day.consumedKcal)),
+        loggedDays: matching.length,
+      };
+    }),
+    mealTypes: {
+      breakfast: mealAverage('breakfast'),
+      lunch: mealAverage('lunch'),
+      dinner: mealAverage('dinner'),
+      snack: mealAverage('snack'),
+    },
+  };
+}
+
+export const weekdayLabels = ['日', '月', '火', '水', '木', '金', '土'];

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   Alert,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -182,6 +183,7 @@ export function HomeScreen({
           </View>
           <MealList
             day={day}
+            photoUrl={api.photoUrl}
             deletingId={deletingId}
             onEdit={onEditMeal}
             onDelete={confirmDelete}
@@ -251,12 +253,14 @@ function DayCard({ day, today }: { day: DayDetail; today: string }) {
 
 function MealList({
   day,
+  photoUrl,
   deletingId,
   onEdit,
   onDelete,
   onAdd,
 }: {
   day: DayDetail;
+  photoUrl: (id: string) => string;
   deletingId: string | null;
   onEdit: (meal: Meal) => void;
   onDelete: (meal: Meal) => void;
@@ -290,6 +294,14 @@ function MealList({
             </View>
             {meals.map((meal) => (
               <View key={meal.id} style={styles.meal}>
+                {meal.photoId ? (
+                  <Image
+                    source={{ uri: photoUrl(meal.photoId) }}
+                    style={styles.thumbnail}
+                    resizeMode="cover"
+                    accessibilityLabel={`${meal.name}の写真`}
+                  />
+                ) : null}
                 <View style={styles.mealMain}>
                   <View style={styles.mealTitleRow}>
                     <Text style={styles.mealName} numberOfLines={2}>
@@ -397,6 +409,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingVertical: 4,
+  },
+  thumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
   },
   mealMain: { flex: 1, minWidth: 140, gap: 2 },
   mealTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

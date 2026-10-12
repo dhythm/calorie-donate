@@ -7,20 +7,28 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
     "@calorie-donate/api": "workspace:*",
+    "@electric-sql/pglite": "0.5.8",
+    "drizzle-orm": "0.45.4",
     "next": "16.4.0",
+    "pg": "8.23.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "server-only": "0.0.1",
     "zod": "4.6.6"
   },
   "devDependencies": {
+    "@types/pg": "8.23.1",
     "@types/react": "~19.2.2",
     "@types/react-dom": "~19.2.0",
+    "drizzle-kit": "0.31.11",
     "eslint-config-next": "16.4.0"
   }
 }

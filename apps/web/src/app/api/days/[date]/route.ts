@@ -10,5 +10,5 @@ export async function GET(
   if (!dateKeySchema.safeParse(date).success) {
     return errorResponse('INVALID_REQUEST', 400, 'date must be YYYY-MM-DD.');
   }
-  return handle(() => getService().day(date));
+  return handle(async () => (await getService()).day(date));
 }

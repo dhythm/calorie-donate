@@ -27,7 +27,7 @@ type Tab = 'home' | 'record' | 'history' | 'donations' | 'settings';
 
 const tabs: { key: Tab; label: string; icon: string }[] = [
   { key: 'home', label: 'ホーム', icon: '⌂' },
-  { key: 'history', label: '履歴', icon: '☰' },
+  { key: 'history', label: 'グラフ', icon: '▥' },
   { key: 'record', label: '記録', icon: '＋' },
   { key: 'donations', label: '寄付', icon: '♥' },
   { key: 'settings', label: '設定', icon: '⚙' },

@@ -1,12 +1,12 @@
-import { IMAGE_MAX_BYTES, type EstimateRequest } from '@calorie-donate/api';
+import { IMAGE_MAX_BYTES, type PhotoUpload } from '@calorie-donate/api';
 
 /** Long edge recommended for Claude vision; larger images only add latency. */
 const MAX_EDGE = 1568;
 
-/** Downscale a photo in the browser and encode it for the estimate API. */
+/** Downscale a photo in the browser and encode it for upload. */
 export async function prepareImage(
   file: File,
-): Promise<EstimateRequest & { previewUrl: string }> {
+): Promise<PhotoUpload & { previewUrl: string }> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');

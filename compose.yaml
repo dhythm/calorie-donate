@@ -1,0 +1,21 @@
+# Local PostgreSQL for development: `docker compose up -d`
+# then set DATABASE_URL=postgres://calorie:calorie@localhost:5432/calorie_donate
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: calorie
+      POSTGRES_PASSWORD: calorie
+      POSTGRES_DB: calorie_donate
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U calorie -d calorie_donate']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  postgres-data:

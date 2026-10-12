@@ -1,22 +1,28 @@
 import 'server-only';
-import path from 'node:path';
 import { apiErrorSchema, type ApiErrorCode } from '@calorie-donate/api';
+import { databaseConfigFromEnv, openDatabase } from './db/client';
 import { createEstimator, type CalorieEstimator } from './estimator';
 import { createService, ServiceError, type Service } from './service';
-import { createFileStore } from './store';
 
-let service: Service | undefined;
+// Kept on globalThis so dev hot reloads reuse one pool / PGlite instance
+// (a PGlite data directory can only be opened once per process).
+const cache = globalThis as typeof globalThis & {
+  calorieDonateService?: Promise<Service>;
+};
 let estimator: CalorieEstimator | undefined;
 
-/** Process-wide service backed by the JSON data file. */
-export function getService(): Service {
-  service ??= createService(
-    createFileStore(
-      process.env.CALORIE_DONATE_DATA_FILE ||
-        path.join(process.cwd(), '.data', 'calorie-donate.json'),
-    ),
+/** Process-wide service on the configured database, migrated on first use. */
+export function getService(): Promise<Service> {
+  cache.calorieDonateService ??= openDatabase(databaseConfigFromEnv(), {
+    migrate: process.env.DATABASE_AUTO_MIGRATE !== 'false',
+  }).then(
+    ({ db }) => createService(db),
+    (error: unknown) => {
+      cache.calorieDonateService = undefined;
+      throw error;
+    },
   );
-  return service;
+  return cache.calorieDonateService;
 }
 
 export function getEstimator(): CalorieEstimator {
