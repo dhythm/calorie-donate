@@ -72,7 +72,7 @@ pnpm dev:demo  # 通常の開発サーバーを停止してから実行（Web、
 
 ## 採用バージョン
 
-2026-10-12 時点の公式資料・npm 安定版タグを確認し、Next.js 16.4.0、Expo SDK 57.0.27、React Native 0.86.3、React 19.2.3 を採用しました。両アプリの React を揃え、TypeScript は Expo 公式 TypeScript テンプレートに合わせて 6.0.3、ESLint は公式 Expo / Next.js 設定内のプラグインの peer 要件に合わせて 9.39.5（10 系未対応）を使います。pnpm は 10.34.7 に固定し、lockfile をコミットしています。
+2026-10-12 時点の公式資料・npm 安定版タグを確認し、Next.js 16.4.0、Expo SDK 57.0.28、React Native 0.86.3、React 19.2.3 を採用しました。両アプリの React を揃え、TypeScript は Expo 公式 TypeScript テンプレートに合わせて 6.0.3、ESLint は公式 Expo / Next.js 設定内のプラグインの peer 要件に合わせて 9.39.5（10 系未対応）を使います。pnpm は 10.34.7 に固定し、lockfile をコミットしています。
 
 - [Expo SDK の互換性表](https://docs.expo.dev/versions/latest/)（SDK 57: RN 0.86 / React 19.2.3 / Node 22.13 以上）
 - [Expo の pnpm モノレポ対応](https://docs.expo.dev/guides/monorepos/)（SDK 54 以降は isolated install 対応。Metro は自動構成）
