@@ -4,14 +4,14 @@ import { createApiClient } from '../../packages/api/src/index';
 test('web connects to its Next.js API through the shared client', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/settings');
   await page.getByRole('button', { name: 'API 接続を確認' }).click();
   await expect(page.getByRole('status')).toHaveText(
     '接続成功: calorie-donate-api (ok)',
   );
 });
 test('web shows a recoverable network error', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/settings');
   await page.route('**/api/health', (route) => route.abort());
   const button = page.getByRole('button', { name: 'API 接続を確認' });
   await button.click();

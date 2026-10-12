@@ -10,6 +10,16 @@
     "platforms": ["ios", "android"],
     "updates": {
       "enabled": false
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "食事の写真からカロリーを推定するため、写真ライブラリへのアクセスを許可してください。",
+          "cameraPermission": "食事を撮影してカロリーを推定するため、カメラへのアクセスを許可してください。",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }

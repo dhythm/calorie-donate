@@ -11,3 +11,4 @@ test-results/
 .DS_Store
 apps/mobile/ios/
 apps/mobile/android/
+.data/

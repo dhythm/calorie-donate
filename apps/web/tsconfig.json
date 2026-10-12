@@ -3,7 +3,8 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "plugins": [{ "name": "next" }],
-    "incremental": true
+    "incremental": true,
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": [
     "next-env.d.ts",
