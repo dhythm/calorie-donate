@@ -252,13 +252,7 @@ function TabBar({
             onPress={() => onSelect(item.key)}
             style={styles.tab}
           >
-            <View
-              style={[
-                isRecord ? styles.recordIcon : styles.tabIcon,
-                selected && !isRecord && styles.tabIconActive,
-                isRecord && selected && styles.recordIconActive,
-              ]}
-            >
+            <View style={[styles.tabIcon, selected && styles.tabIconActive]}>
               <Text
                 style={[
                   styles.tabIconText,
@@ -302,14 +296,5 @@ const styles = StyleSheet.create({
   tabIconText: { fontSize: 20, color: colors.muted },
   tabLabel: { fontSize: 11, color: colors.muted, fontWeight: '800' },
   tabTextActive: { color: colors.text },
-  recordIcon: {
-    width: 44,
-    height: 28,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordIconActive: { backgroundColor: colors.accent },
-  recordIconText: { color: colors.onPrimary, fontSize: 20, fontWeight: '700' },
+  recordIconText: { fontWeight: '700' },
 });
