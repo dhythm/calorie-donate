@@ -272,10 +272,12 @@ function PeriodRows({
                 />
               </View>
               <View style={styles.rowTop}>
-                <Text style={styles.caption}>
+                <Text
+                  style={[styles.caption, item.overKcal > 0 && styles.over]}
+                >
                   {item.mealCount ? formatKcal(item.consumedKcal) : '記録なし'}
                 </Text>
-                <Text style={styles.amount}>
+                <Text style={[styles.amount, item.overKcal > 0 && styles.over]}>
                   {item.donationYen > 0 ? formatYen(item.donationYen) : '—'}
                 </Text>
               </View>
@@ -336,5 +338,6 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   pressed: { opacity: 0.65 },
+  over: { color: colors.over },
   future: { opacity: 0.55 },
 });

@@ -8,8 +8,12 @@
   --primary: var(--brand-yellow);
   --primary-soft: #fff5d6;
   --warm: #a84625;
-  --chart-within: #a57600;
-  --chart-over: #333333;
+  --over: #e83101;
+  --over-soft: #fff0ec;
+  --within: #e7c988;
+  --within-soft: #f8f0df;
+  --chart-within: var(--within);
+  --chart-over: var(--over);
   --warm-soft: #fcebe4;
   --danger: #b42318;
   --radius: 4px;
@@ -544,7 +548,7 @@ input[type='number'] {
   gap: 24px;
 }
 .hero[data-over='true'] {
-  background: linear-gradient(135deg, var(--surface), var(--warm-soft));
+  background: linear-gradient(135deg, var(--surface), var(--over-soft));
 }
 @media (max-width: 480px) {
   .hero {
@@ -571,7 +575,7 @@ input[type='number'] {
 }
 .hero[data-over='true'] .hero-status,
 .hero[data-over='true'] .donation-line {
-  color: var(--warm);
+  color: var(--over);
 }
 .donation-line {
   font-weight: 600;
@@ -604,18 +608,21 @@ input[type='number'] {
   stroke-width: 12;
 }
 .ring-track {
-  stroke: var(--primary-soft);
+  stroke: var(--within-soft);
 }
 .ring-value {
-  stroke: var(--primary);
+  stroke: var(--within);
   stroke-linecap: round;
   transition: stroke-dashoffset 0.4s ease;
 }
 .ring[data-over='true'] .ring-track {
-  stroke: var(--warm-soft);
+  stroke: var(--over-soft);
 }
 .ring[data-over='true'] .ring-value {
-  stroke: var(--warm);
+  stroke: var(--over);
+}
+.ring[data-over='true'] .ring-number {
+  color: var(--over);
 }
 .ring-label {
   position: absolute;
@@ -799,16 +806,20 @@ input[type='number'] {
   grid-area: bar;
   height: 8px;
   border-radius: 4px;
-  background: var(--primary-soft);
+  background: var(--within-soft);
   overflow: hidden;
 }
 .bar-fill {
   display: block;
   height: 100%;
-  background: var(--primary);
+  background: var(--within);
 }
 .history-row[data-over='true'] .bar-fill {
-  background: var(--warm);
+  background: var(--over);
+}
+.history-row[data-over='true'] .history-kcal,
+.history-row[data-over='true'] .history-donation {
+  color: var(--over);
 }
 .history-kcal {
   grid-area: kcal;

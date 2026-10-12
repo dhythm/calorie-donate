@@ -11,7 +11,7 @@ import {
   type HabitStats,
 } from '@calorie-donate/api';
 
-// Dark ochre and charcoal keep chart marks distinct on the white surface.
+// Biscuit beige marks days within target; package red marks days over target.
 const WITHIN = 'var(--chart-within)';
 const OVER = 'var(--chart-over)';
 

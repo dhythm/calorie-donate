@@ -116,7 +116,7 @@ export function ProgressBar({
           {
             width: `${clamped * 100}%`,
             borderRadius: height / 2,
-            backgroundColor: over ? colors.accent : colors.primary,
+            backgroundColor: over ? colors.over : colors.within,
           },
         ]}
       />
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   },
   track: {
     width: '100%',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.withinSoft,
     overflow: 'hidden',
   },
   fill: { height: '100%' },

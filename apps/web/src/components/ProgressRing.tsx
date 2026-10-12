@@ -1,6 +1,6 @@
 import { formatKcal, progressRatio } from '@calorie-donate/api';
 
-/** Circular gauge of consumed vs target; turns warm once over target. */
+/** Circular gauge of consumed vs target; turns red once over target. */
 export function ProgressRing({
   consumedKcal,
   targetKcal,

@@ -1,3 +1,6 @@
+const packageRed = '#e83101';
+const biscuitBeige = '#e7c988';
+
 export const colors = {
   brandYellow: '#f9bf13',
   background: '#ffffff',
@@ -9,8 +12,12 @@ export const colors = {
   primarySoft: '#fff5d6',
   surfaceMuted: '#f5f5f5',
   placeholder: '#767676',
-  chartWithin: '#a57600',
-  chartOver: '#333333',
+  chartWithin: biscuitBeige,
+  within: biscuitBeige,
+  withinSoft: '#f8f0df',
+  chartOver: packageRed,
+  over: packageRed,
+  overSoft: '#fff0ec',
   accent: '#a84625',
   accentSoft: '#fcebe4',
   accentText: '#a8452a',
