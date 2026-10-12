@@ -4,8 +4,16 @@
     "slug": "calorie-donate",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/brand/icon.png",
     "ios": {
       "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/adaptive-foreground.png",
+        "monochromeImage": "./assets/brand/adaptive-monochrome.png",
+        "backgroundColor": "#f9bf13"
+      }
     },
     "platforms": ["ios", "android"],
     "updates": {
@@ -18,6 +26,19 @@
           "photosPermission": "食事の写真からカロリーを推定するため、写真ライブラリへのアクセスを許可してください。",
           "cameraPermission": "食事を撮影してカロリーを推定するため、カメラへのアクセスを許可してください。",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f9bf13",
+          "image": "./assets/brand/wordmark.png",
+          "imageWidth": 280,
+          "resizeMode": "contain",
+          "android": {
+            "image": "./assets/brand/splash-mark.png",
+            "imageWidth": 200
+          }
         }
       ]
     ]

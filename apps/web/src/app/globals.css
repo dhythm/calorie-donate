@@ -1,5 +1,6 @@
 :root {
   --bg: #f4f7f6;
+  --brand-yellow: #f9bf13;
   --surface: #ffffff;
   --text: #143b32;
   --muted: #5b726b;
@@ -59,25 +60,24 @@ a {
   gap: 16px;
   padding: 12px 24px;
   /* No backdrop-filter: it would trap the fixed mobile nav inside the bar. */
-  background: var(--bg);
+  background: var(--brand-yellow);
   border-bottom: 1px solid var(--line);
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
+  flex-shrink: 0;
+  border-radius: 6px;
   text-decoration: none;
 }
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--warm);
-  color: white;
-  font-size: 0.9rem;
+.brand:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+}
+.brand-wordmark {
+  display: block;
+  width: 196px;
+  height: 56px;
 }
 .nav {
   display: flex;
@@ -90,7 +90,7 @@ a {
   padding: 8px 12px;
   border-radius: 999px;
   text-decoration: none;
-  color: var(--muted);
+  color: var(--text);
   font-size: 0.95rem;
 }
 .nav-link[aria-current='page'] {

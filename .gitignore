@@ -12,3 +12,7 @@ test-results/
 apps/mobile/ios/
 apps/mobile/android/
 .data/
+
+# Keep supplied editable design originals local; publish derived app assets only.
+assets/brand/source/*.ai
+assets/brand/source/*.psd
