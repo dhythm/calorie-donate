@@ -1,10 +1,13 @@
 import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ApiClientError, createApiClient } from '@calorie-donate/api';
 import { MainApp } from './src/MainApp';
 import { colors } from './src/theme';
+
+SplashScreen.setOptions({ duration: 200, fade: true });
 
 type ClientState =
   | { ok: true; api: ReturnType<typeof createApiClient>; baseUrl: string }

@@ -12,7 +12,8 @@ import {
   type Overview,
   type Profile,
 } from '@calorie-donate/api';
-import { Loading, Notice } from './components';
+import { Notice } from './components';
+import { BrandHeader, BrandSplash } from './Brand';
 import { describeError } from './errors';
 import { DonationsScreen } from './screens/DonationsScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
@@ -86,7 +87,10 @@ export function MainApp({ api, baseUrl }: { api: ApiClient; baseUrl: string }) {
 
   if (!session) {
     return (
-      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+      <SafeAreaView
+        style={[styles.root, !loadError && styles.brandBackground]}
+        edges={['top', 'bottom']}
+      >
         {loadError ? (
           <View style={styles.centered}>
             <Notice
@@ -98,7 +102,7 @@ export function MainApp({ api, baseUrl }: { api: ApiClient; baseUrl: string }) {
             />
           </View>
         ) : (
-          <Loading />
+          <BrandSplash />
         )}
       </SafeAreaView>
     );
@@ -208,7 +212,8 @@ export function MainApp({ api, baseUrl }: { api: ApiClient; baseUrl: string }) {
   }
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
+    <SafeAreaView style={[styles.root, styles.brandBackground]} edges={['top']}>
+      <BrandHeader />
       <View style={styles.content}>{content}</View>
       <TabBar
         active={tab}
@@ -275,7 +280,8 @@ function TabBar({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
-  content: { flex: 1 },
+  brandBackground: { backgroundColor: colors.brandYellow },
+  content: { flex: 1, backgroundColor: colors.background },
   centered: { flex: 1, justifyContent: 'center', padding: 24 },
   tabBar: {
     flexDirection: 'row',

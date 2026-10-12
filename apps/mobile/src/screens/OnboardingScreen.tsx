@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import type { ApiClient, Profile } from '@calorie-donate/api';
 import { Card } from '../components';
+import { BrandLogo } from '../Brand';
 import { ProfileForm } from '../ProfileForm';
 import { colors } from '../theme';
 
@@ -42,7 +43,9 @@ export function OnboardingScreen({
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.eyebrow}>CALORIE DONATE</Text>
+        <View style={styles.brand}>
+          <BrandLogo />
+        </View>
         <Text style={styles.title} accessibilityRole="header">
           食べすぎを、{'\n'}誰かの笑顔に。
         </Text>
@@ -78,11 +81,10 @@ export function OnboardingScreen({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { padding: 24, gap: 20, paddingBottom: 48 },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 12,
-    letterSpacing: 2,
-    fontWeight: '700',
+  brand: {
+    backgroundColor: colors.brandYellow,
+    borderRadius: 16,
+    padding: 12,
   },
   title: {
     color: colors.text,

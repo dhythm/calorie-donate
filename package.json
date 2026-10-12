@@ -7,6 +7,7 @@
     "node": ">=24.13.0 <25"
   },
   "scripts": {
+    "brand:generate": "node tools/export-brand-assets.mjs",
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
     "dev:web": "pnpm --filter @calorie-donate/web dev",
     "dev:mobile": "pnpm --filter @calorie-donate/mobile dev",
@@ -36,7 +37,8 @@
     "knip": "6.41.0",
     "vitest": "5.0.4",
     "@playwright/test": "1.64.0",
-    "expo-doctor": "1.20.4"
+    "expo-doctor": "1.20.4",
+    "sharp": "0.35.5"
   },
   "type": "module"
 }
