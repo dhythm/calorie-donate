@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   compactWordmark: { width: 196, height: 56, alignSelf: 'flex-start' },
   header: {
     backgroundColor: colors.brandYellow,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 8,
   },
   splash: {

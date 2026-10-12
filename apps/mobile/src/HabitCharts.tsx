@@ -15,9 +15,9 @@ import { Card, SectionTitle } from './components';
 import { colors, radius } from './theme';
 
 /** Data colors: only for marks (bars, cells, swatches), never for text. */
-const WITHIN = '#199e70';
-const OVER = '#e0602f';
-const NO_LOG = '#e3ebe8';
+const WITHIN = colors.chartWithin;
+const OVER = colors.chartOver;
+const NO_LOG = colors.border;
 
 const CHART_DAYS = 30;
 const CHART_HEIGHT = 140;
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 4,
     borderTopRightRadius: 4,
   },
-  slotSelected: { backgroundColor: '#e8eeec' },
+  slotSelected: { backgroundColor: colors.surfaceMuted },
   column: {
     width: '100%',
     maxWidth: 16,

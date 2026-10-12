@@ -128,6 +128,71 @@ test('the native-style client reads the same data and errors', async () => {
   });
 });
 
+test('history switches between daily periods and twelve monthly summaries', async ({
+  page,
+  request,
+}) => {
+  const { today } = await (await request.get('/api/overview')).json();
+  const year = Number(today.slice(0, 4));
+  const pastYear = year - 1;
+  await page.goto('/history');
+  const history = page.getByTestId('period-history');
+  await history.getByRole('button', { name: '年', exact: true }).click();
+  await expect(
+    history.getByRole('list', { name: '月別のサマリー' }).locator('li'),
+  ).toHaveCount(12);
+  await expect(history.getByRole('list', { name: '日別の記録' })).toHaveCount(
+    0,
+  );
+  await history.getByLabel('表示年', { exact: true }).fill(String(pastYear));
+  await history.getByRole('button', { name: '移動', exact: true }).click();
+  await expect(history.locator('.period-navigation')).toContainText(
+    `${pastYear}年`,
+  );
+  await history
+    .getByRole('list', { name: '月別のサマリー' })
+    .getByRole('button')
+    .filter({ hasText: /^2月/ })
+    .click();
+  const februaryDays = new Date(Date.UTC(pastYear, 2, 0)).getUTCDate();
+  await expect(
+    history.getByRole('list', { name: '日別の記録' }).locator('li'),
+  ).toHaveCount(februaryDays);
+  await expect(history.getByLabel('表示月', { exact: true })).toHaveValue(
+    `${pastYear}-02`,
+  );
+  await history.getByLabel('表示月', { exact: true }).fill(`${pastYear}-03`);
+  await history.getByRole('button', { name: '移動', exact: true }).click();
+  await expect(history.locator('.period-navigation')).toContainText(
+    `${pastYear}年3月`,
+  );
+  await expect(
+    history.getByRole('list', { name: '日別の記録' }).locator('li'),
+  ).toHaveCount(31);
+  await history
+    .getByRole('button', { name: '今月に戻る', exact: true })
+    .click();
+  await expect(history.getByLabel('表示月', { exact: true })).toHaveValue(
+    today.slice(0, 7),
+  );
+
+  const response = await request.get(
+    `/api/history/period?period=year&anchor=${pastYear}-01-01`,
+  );
+  expect(response.status()).toBe(200);
+  const body = await response.json();
+  expect(body.months).toHaveLength(12);
+  expect(body).not.toHaveProperty('days');
+  for (const query of [
+    'period=bad',
+    'period=month&anchor=2026-02-30',
+    `period=year&anchor=${year + 1}-01-01`,
+  ]) {
+    const invalid = await request.get(`/api/history/period?${query}`);
+    expect(invalid.status()).toBe(400);
+  }
+});
+
 test('API validates meal and photo payloads', async ({ request }) => {
   const meal = await request.post('/api/meals', {
     data: { date: 'today', mealType: 'brunch', name: '', calories: -1 },

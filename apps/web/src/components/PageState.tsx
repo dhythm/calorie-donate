@@ -16,7 +16,7 @@ export function LoadError({
   onRetry: () => void;
 }) {
   return (
-    <div className="card">
+    <div className="card state-message">
       <p role="alert" className="notice error">
         {message}
       </p>
@@ -29,11 +29,20 @@ export function LoadError({
 
 export function NeedsProfile() {
   return (
-    <div className="card">
-      <p>まずは1日の目標カロリーを設定しましょう。</p>
+    <section className="empty-state" aria-labelledby="setup-title">
+      <p className="eyebrow">GET STARTED</p>
+      <h1 id="setup-title">
+        あなたの目標から、
+        <br />
+        はじめよう。
+      </h1>
+      <p className="empty-state-description">
+        1日の目標カロリーを決めて、食事の記録をはじめましょう。
+      </p>
       <Link href="/" className="button primary">
         設定をはじめる
+        <span aria-hidden="true">↗</span>
       </Link>
-    </div>
+    </section>
   );
 }

@@ -11,9 +11,9 @@ import {
   type HabitStats,
 } from '@calorie-donate/api';
 
-// Validated pair (dataviz validator, light surface): within target / over.
-const WITHIN = '#199e70';
-const OVER = '#e0602f';
+// Biscuit beige marks days within target; package red marks days over target.
+const WITHIN = 'var(--chart-within)';
+const OVER = 'var(--chart-over)';
 
 type Tip = { x: number; y: number; title: string; lines: string[] } | null;
 

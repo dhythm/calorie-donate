@@ -44,7 +44,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
       </header>
-      <main className="content">{children}</main>
+      <main className="content" data-page={pathname}>
+        {children}
+      </main>
     </div>
   );
 }

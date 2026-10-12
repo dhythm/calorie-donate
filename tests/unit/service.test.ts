@@ -70,6 +70,57 @@ describe.each(drivers)('calorie donate service on %s', (_name, config) => {
     ).rejects.toMatchObject({ code: 'PROFILE_REQUIRED', status: 409 });
   });
 
+  it('aggregates historical years into twelve months and drills down to a full month', async () => {
+    const service = newService();
+    now = new Date('2024-01-01T00:00:00Z');
+    await service.saveProfile(profile);
+    await service.createMeal(meal('2024-01-01', 2500));
+    now = new Date('2024-02-29T00:00:00Z');
+    await service.createMeal(meal('2024-02-29', 1200));
+    now = new Date('2024-03-02T00:00:00Z');
+    await service.saveProfile({ ...profile, dailyTargetKcal: 1800 });
+    const result = await service.periodHistory({
+      period: 'year',
+      anchor: '2024-01-01',
+    });
+    if (result.granularity !== 'month') throw Error('Expected months');
+    expect(result.months).toHaveLength(12);
+    expect(result).not.toHaveProperty('days');
+    expect(result.months[0]).toMatchObject({
+      loggedDays: 1,
+      averageKcal: 2500,
+      donationYen: 500,
+    });
+    expect(result.months[1]).toMatchObject({
+      loggedDays: 1,
+      averageKcal: 1200,
+    });
+    const january = await service.periodHistory({
+      period: 'month',
+      anchor: '2024-01-01',
+    });
+    if (january.granularity !== 'day') throw Error('Expected days');
+    expect(january.days).toHaveLength(31);
+    expect(january.days.at(-1)).toMatchObject({
+      date: '2024-01-01',
+      targetKcal: 2000,
+      donationYen: 500,
+      mealCount: 1,
+    });
+    const february = await service.periodHistory({
+      period: 'month',
+      anchor: '2024-02-01',
+    });
+    if (february.granularity !== 'day') throw Error('Expected days');
+    expect(february.days).toHaveLength(29);
+    await expect(
+      service.periodHistory({ period: 'year', anchor: '2025-01-01' }),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+    await expect(
+      service.periodHistory({ period: 'month', anchor: '2024-02-30' }),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+  });
+
   it('tracks today and the provisional donation', async () => {
     const service = newService();
     const saved = await service.saveProfile(profile);
@@ -93,9 +144,10 @@ describe.each(drivers)('calorie donate service on %s', (_name, config) => {
     });
   });
 
-  it('keeps data across a reopened PGlite data directory', async () => {
+  it('creates missing PGlite parent directories and keeps data after reopening', async () => {
     if (config.driver !== 'pglite') return;
-    const dir = await mkdtemp(path.join(tmpdir(), 'calorie-donate-'));
+    const root = await mkdtemp(path.join(tmpdir(), 'calorie-donate-'));
+    const dir = path.join(root, '.data', 'pglite');
     try {
       const first = await openDatabase(
         { driver: 'pglite', dataDir: dir },
@@ -111,7 +163,7 @@ describe.each(drivers)('calorie donate service on %s', (_name, config) => {
       expect(overview.profile?.dailyTargetKcal).toBe(2000);
       await second.close();
     } finally {
-      await rm(dir, { recursive: true, force: true });
+      await rm(root, { recursive: true, force: true });
     }
   });
 

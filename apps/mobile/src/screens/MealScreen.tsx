@@ -465,7 +465,7 @@ export function MealScreen({
                           updateRow(row.key, { name: text })
                         }
                         placeholder="品目名"
-                        placeholderTextColor="#9aaba5"
+                        placeholderTextColor={colors.placeholder}
                         maxLength={80}
                         style={[styles.input, styles.itemName]}
                       />
@@ -477,7 +477,7 @@ export function MealScreen({
                         }
                         keyboardType="number-pad"
                         placeholder="0"
-                        placeholderTextColor="#9aaba5"
+                        placeholderTextColor={colors.placeholder}
                         style={[styles.input, styles.itemKcal]}
                       />
                       <Text style={styles.unit}>kcal</Text>
@@ -552,7 +552,7 @@ export function MealScreen({
                       style={styles.uploading}
                       accessibilityLiveRegion="polite"
                     >
-                      <ActivityIndicator color={colors.primary} />
+                      <ActivityIndicator color={colors.text} />
                       <Text style={styles.help}>アップロード中…</Text>
                     </View>
                   ) : (
@@ -667,13 +667,19 @@ export function MealScreen({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { padding: 20, gap: 16, paddingBottom: 48 },
+  container: { padding: 24, gap: 28, paddingBottom: 40 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  title: {
+    color: colors.text,
+    fontSize: 30,
+    lineHeight: 39,
+    fontWeight: '900',
+    letterSpacing: -0.9,
+  },
   help: { color: colors.muted, fontSize: 14, lineHeight: 21 },
   preview: {
     width: '100%',
@@ -729,7 +735,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   totalLabel: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  totalValue: { color: colors.primary, fontSize: 18, fontWeight: '800' },
+  totalValue: { color: colors.text, fontSize: 18, fontWeight: '800' },
   group: { gap: 6 },
   errorText: { color: colors.danger, fontSize: 12 },
 });

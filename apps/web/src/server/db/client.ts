@@ -1,4 +1,5 @@
 import 'server-only';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from './schema';
@@ -49,6 +50,12 @@ export async function openDatabase(
   }
   const { PGlite } = await import('@electric-sql/pglite');
   const { drizzle } = await import('drizzle-orm/pglite');
+  // PGlite creates its data directory, but not missing parent directories.
+  if (config.dataDir) {
+    await mkdir(path.dirname(path.resolve(config.dataDir)), {
+      recursive: true,
+    });
+  }
   const client = config.dataDir ? new PGlite(config.dataDir) : new PGlite();
   const db = drizzle(client, { schema });
   if (migrate) {

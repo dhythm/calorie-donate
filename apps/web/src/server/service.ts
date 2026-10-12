@@ -2,6 +2,9 @@ import 'server-only';
 import {
   addDays,
   buildHabitStats,
+  historyPeriodQuerySchema,
+  historyPeriodRange,
+  summarizeHistoryPeriod,
   DEFAULT_TIME_ZONE,
   dateKeyInTimeZone,
   dateRange,
@@ -21,6 +24,8 @@ import {
   type HabitDay,
   type HabitStats,
   type History,
+  type HistoryPeriodQuery,
+  type PeriodHistory,
   type Meal,
   type MealInput,
   type MealType,
@@ -449,6 +454,35 @@ export function createService(
           donationYen: summary.donationYen,
           mealCount: totals.mealCount,
           byMealType: totals.byMealType,
+        })),
+      );
+    },
+
+    async periodHistory(
+      input: HistoryPeriodQuery = {},
+    ): Promise<PeriodHistory> {
+      const { period, anchor: requested } = parse(
+        historyPeriodQuerySchema,
+        input,
+      );
+      const { profile, today } = await current();
+      const savedProfile = requireProfile(profile);
+      const anchor = requested ?? today;
+      assertViewableDate(anchor, today);
+      const { from, to } = historyPeriodRange(period, anchor);
+      const rows = await summaries(
+        savedProfile,
+        today,
+        from,
+        to < today ? to : today,
+      );
+      return summarizeHistoryPeriod(
+        period,
+        anchor,
+        today,
+        rows.map(({ summary, totals }) => ({
+          ...summary,
+          mealCount: totals.mealCount,
         })),
       );
     },

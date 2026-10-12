@@ -255,6 +255,7 @@ function TabBar({
             <View
               style={[
                 isRecord ? styles.recordIcon : styles.tabIcon,
+                selected && !isRecord && styles.tabIconActive,
                 isRecord && selected && styles.recordIconActive,
               ]}
             >
@@ -292,13 +293,19 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, alignItems: 'center', gap: 2, minHeight: 48 },
   tabIcon: { height: 28, justifyContent: 'center' },
+  tabIconActive: {
+    width: 44,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
   tabIconText: { fontSize: 20, color: colors.muted },
-  tabLabel: { fontSize: 11, color: colors.muted, fontWeight: '600' },
-  tabTextActive: { color: colors.primary },
+  tabLabel: { fontSize: 11, color: colors.muted, fontWeight: '800' },
+  tabTextActive: { color: colors.text },
   recordIcon: {
     width: 44,
     height: 28,
-    borderRadius: 14,
+    borderRadius: 4,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',

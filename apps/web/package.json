@@ -10,7 +10,9 @@
     "typecheck": "next typegen && tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "seed:demo": "node tools/seed-demo.mjs",
+    "dev:demo": "node tools/run-demo.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
