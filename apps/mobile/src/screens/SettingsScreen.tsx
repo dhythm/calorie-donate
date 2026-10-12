@@ -93,8 +93,14 @@ export function SettingsScreen({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { padding: 20, gap: 16, paddingBottom: 48 },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  container: { padding: 24, gap: 28, paddingBottom: 40 },
+  title: {
+    color: colors.text,
+    fontSize: 30,
+    lineHeight: 39,
+    fontWeight: '900',
+    letterSpacing: -0.9,
+  },
   help: { color: colors.muted, fontSize: 13, lineHeight: 19 },
   label: { color: colors.muted, fontSize: 12, fontWeight: '600' },
   mono: {

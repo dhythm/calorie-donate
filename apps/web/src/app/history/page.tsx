@@ -1,15 +1,6 @@
 'use client';
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ApiClientError,
-  formatDateLabel,
-  formatKcal,
-  formatYen,
-  progressRatio,
-  type HabitStats,
-  type History,
-} from '@calorie-donate/api';
+import { ApiClientError, type HabitStats } from '@calorie-donate/api';
 import {
   DailyChart,
   HabitCalendar,
@@ -18,13 +9,12 @@ import {
 } from '@/components/HabitCharts';
 import { LoadError, Loading, NeedsProfile } from '@/components/PageState';
 import { api, errorMessage } from '@/lib/api';
+import { PeriodHistory } from '@/components/PeriodHistory';
 
-const DAYS = 30;
 /** Twelve weeks for the habit calendar and averages. */
 const STATS_DAYS = 84;
 
 export default function HistoryPage() {
-  const [history, setHistory] = useState<History | null>(null);
   const [stats, setStats] = useState<HabitStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsProfile, setNeedsProfile] = useState(false);
@@ -32,11 +22,7 @@ export default function HistoryPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [nextHistory, nextStats] = await Promise.all([
-        api.history(DAYS),
-        api.stats(STATS_DAYS),
-      ]);
-      setHistory(nextHistory);
+      const nextStats = await api.stats(STATS_DAYS);
       setStats(nextStats);
     } catch (caught) {
       if (
@@ -56,9 +42,8 @@ export default function HistoryPage() {
 
   if (needsProfile) return <NeedsProfile />;
   if (error) return <LoadError message={error} onRetry={() => void load()} />;
-  if (!history || !stats) return <Loading />;
+  if (!stats) return <Loading />;
 
-  const today = history.days[0]?.date ?? '';
   const { streaks, summary } = stats;
   const target = stats.days.at(-1)?.targetKcal ?? 0;
 
@@ -112,41 +97,7 @@ export default function HistoryPage() {
           <MealTypeChart stats={stats} />
         </section>
       </div>
-      <h2>日ごとの記録</h2>
-      <ul className="history-list card">
-        {history.days.map((day) => (
-          <li key={day.date}>
-            <Link
-              href={day.date === today ? '/' : `/?date=${day.date}`}
-              className="history-row"
-              data-over={day.overKcal > 0}
-            >
-              <span className="history-date">
-                {formatDateLabel(day.date, today)}
-              </span>
-              <span className="bar" aria-hidden="true">
-                <span
-                  className="bar-fill"
-                  style={{
-                    width: `${progressRatio(day.consumedKcal, day.targetKcal) * 100}%`,
-                  }}
-                />
-              </span>
-              <span className="history-kcal">
-                {day.consumedKcal > 0
-                  ? `${day.consumedKcal.toLocaleString('ja-JP')} / ${formatKcal(day.targetKcal)}`
-                  : '記録なし'}
-              </span>
-              <span className="history-donation">
-                {day.donationYen > 0 ? formatYen(day.donationYen) : '—'}
-                <span className={`pill ${day.status}`}>
-                  {day.status === 'settled' ? '確定' : '暫定'}
-                </span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <PeriodHistory today={stats.today} />
     </div>
   );
 }

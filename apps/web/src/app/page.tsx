@@ -58,7 +58,7 @@ function Dashboard() {
 
   if (error && !overview) {
     return (
-      <div className="card">
+      <div className="card state-message">
         <p role="alert" className="notice error">
           {error}
         </p>
@@ -85,7 +85,7 @@ function Dashboard() {
   const query = `?date=${day.date}`;
 
   return (
-    <div className="stack">
+    <div className="stack dashboard">
       <div className="day-switch">
         <button
           type="button"
@@ -159,7 +159,7 @@ function Dashboard() {
         </p>
       )}
 
-      <section className="card">
+      <section className="card meal-section">
         <h2>食事の記録</h2>
         {!day.editable && (
           <p className="hint">

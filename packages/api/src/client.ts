@@ -11,6 +11,8 @@ import {
   photoUploadSchema,
   healthSchema,
   historySchema,
+  historyPeriodQuerySchema,
+  periodHistorySchema,
   mealInputSchema,
   mealSchema,
   overviewSchema,
@@ -27,6 +29,8 @@ import {
   type EstimateRequest,
   type Health,
   type History,
+  type HistoryPeriodQuery,
+  type PeriodHistory,
   type Meal,
   type MealInput,
   type Overview,
@@ -167,6 +171,12 @@ export function createApiClient({
       request(`/api/days/${encodeURIComponent(date)}`, dayDetailSchema),
     history: (days = 14): Promise<History> =>
       request(`/api/history?days=${days}`, historySchema),
+    periodHistory: (input: HistoryPeriodQuery = {}): Promise<PeriodHistory> => {
+      const query = historyPeriodQuerySchema.parse(input);
+      const params = new URLSearchParams({ period: query.period });
+      if (query.anchor) params.set('anchor', query.anchor);
+      return request(`/api/history/period?${params}`, periodHistorySchema);
+    },
     createMeal: (input: MealInput): Promise<Meal> =>
       request(
         '/api/meals',

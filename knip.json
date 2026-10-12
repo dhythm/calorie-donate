@@ -9,9 +9,10 @@
       "entry": [
         "src/app/**/{page,layout,route}.tsx",
         "src/app/**/route.ts",
-        "*.config.*"
+        "*.config.*",
+        "tools/*.mjs"
       ],
-      "project": ["src/**/*.{ts,tsx}", "*.config.*"]
+      "project": ["src/**/*.{ts,tsx}", "*.config.*", "tools/*.mjs"]
     },
     "apps/mobile": {
       "entry": ["App.tsx", "*.config.*"],

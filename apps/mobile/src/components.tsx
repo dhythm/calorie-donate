@@ -55,7 +55,7 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? colors.onPrimary : colors.primary}
+          color={variant === 'primary' ? colors.onPrimary : colors.text}
         />
       ) : (
         <Text
@@ -209,7 +209,7 @@ export function Field({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#9aaba5"
+          placeholderTextColor={colors.placeholder}
           keyboardType={keyboardType}
           multiline={multiline}
           maxLength={maxLength}
@@ -285,7 +285,7 @@ export function Notice({
 export function Loading({ label = '読み込み中…' }: { label?: string }) {
   return (
     <View style={styles.loading} accessibilityLiveRegion="polite">
-      <ActivityIndicator color={colors.primary} size="large" />
+      <ActivityIndicator color={colors.text} size="large" />
       <Text style={styles.loadingText}>{label}</Text>
     </View>
   );
@@ -306,7 +306,7 @@ const buttonVariants = StyleSheet.create({
   secondary: {
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.border,
   },
   danger: {
     backgroundColor: colors.surface,
@@ -317,56 +317,57 @@ const buttonVariants = StyleSheet.create({
 });
 const buttonTextVariants = StyleSheet.create({
   primary: { color: colors.onPrimary },
-  secondary: { color: colors.primary },
+  secondary: { color: colors.text },
   danger: { color: colors.danger },
-  ghost: { color: colors.primary },
+  ghost: { color: colors.text },
 });
 const badgeVariants = StyleSheet.create({
-  neutral: { backgroundColor: '#e8eeec' },
+  neutral: { backgroundColor: colors.surfaceMuted },
   primary: { backgroundColor: colors.primarySoft },
   accent: { backgroundColor: colors.accentSoft },
 });
 const badgeTextVariants = StyleSheet.create({
   neutral: { color: colors.muted },
-  primary: { color: colors.primary },
+  primary: { color: colors.text },
   accent: { color: colors.accentText },
 });
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
-    paddingHorizontal: 20,
+    minHeight: 52,
+    paddingHorizontal: 24,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonCompact: { minHeight: 36, paddingHorizontal: 14 },
-  buttonText: { fontSize: 16, fontWeight: '700' },
+  buttonText: { fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
   buttonTextCompact: { fontSize: 14 },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.45 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: 18,
-    gap: 12,
+    padding: 20,
+    gap: 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   track: {
     width: '100%',
-    backgroundColor: '#e3ebe8',
+    backgroundColor: colors.surfaceMuted,
     overflow: 'hidden',
   },
   fill: { height: '100%' },
   segmented: {
     flexDirection: 'row',
-    backgroundColor: '#e6eeeb',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.md,
     padding: 4,
     gap: 4,
@@ -388,13 +389,13 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   segmentText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
-  segmentTextSelected: { color: colors.primary },
-  field: { gap: 6 },
-  fieldLabel: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  segmentTextSelected: { color: colors.text },
+  field: { gap: 8 },
+  fieldLabel: { color: colors.text, fontSize: 13, fontWeight: '800' },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 52,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
@@ -402,7 +403,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     color: colors.text,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceMuted,
   },
   inputMultiline: { minHeight: 80, textAlignVertical: 'top' },
   inputError: { borderColor: colors.danger },
@@ -412,7 +413,7 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 999,
+    borderRadius: 4,
     alignSelf: 'flex-start',
   },
   badgeText: { fontSize: 12, fontWeight: '700' },

@@ -143,6 +143,6 @@ export function ProfileForm({
 }
 
 const styles = StyleSheet.create({
-  form: { gap: 16 },
+  form: { gap: 24 },
   timeZone: { color: colors.muted, fontSize: 12 },
 });

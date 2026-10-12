@@ -7,6 +7,8 @@
     "node": ">=24.13.0 <25"
   },
   "scripts": {
+    "seed:demo": "pnpm --filter @calorie-donate/web seed:demo",
+    "dev:demo": "pnpm --filter @calorie-donate/web dev:demo",
     "brand:generate": "node tools/export-brand-assets.mjs",
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
     "dev:web": "pnpm --filter @calorie-donate/web dev",

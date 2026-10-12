@@ -111,8 +111,8 @@ export function HomeScreen({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={refresh}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
+          tintColor={colors.text}
+          colors={[colors.text]}
         />
       }
     >
@@ -352,9 +352,15 @@ function MealList({
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, gap: 16, paddingBottom: 40 },
+  container: { padding: 24, gap: 28, paddingBottom: 40 },
   header: { gap: 4 },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  title: {
+    color: colors.text,
+    fontSize: 30,
+    lineHeight: 39,
+    fontWeight: '900',
+    letterSpacing: -0.9,
+  },
   dayCardOver: { borderColor: colors.accent },
   dayCardTop: {
     flexDirection: 'row',
@@ -370,7 +376,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   bigTarget: { color: colors.muted, fontSize: 18, fontWeight: '600' },
-  status: { color: colors.primary, fontSize: 18, fontWeight: '700' },
+  status: { color: colors.text, fontSize: 18, fontWeight: '700' },
   overText: { color: colors.accent },
   donationBox: {
     backgroundColor: colors.accentSoft,
@@ -401,7 +407,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     paddingBottom: 8,
   },
-  groupTitle: { color: colors.primary, fontSize: 15, fontWeight: '800' },
+  groupTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
   groupTotal: { color: colors.muted, fontSize: 14, fontWeight: '600' },
   meal: {
     flexDirection: 'row',

@@ -47,8 +47,8 @@ export function DonationsScreen({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={refresh}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
+          tintColor={colors.text}
+          colors={[colors.text]}
         />
       }
     >
@@ -136,19 +136,25 @@ export function DonationsScreen({
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, gap: 16, paddingBottom: 40 },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  container: { padding: 24, gap: 28, paddingBottom: 40 },
+  title: {
+    color: colors.text,
+    fontSize: 30,
+    lineHeight: 39,
+    fontWeight: '900',
+    letterSpacing: -0.9,
+  },
   hero: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     borderRadius: radius.lg,
     padding: 22,
     gap: 4,
   },
-  heroLabel: { color: '#fff6f2', fontSize: 13, fontWeight: '700' },
-  heroValue: { color: '#ffffff', fontSize: 40, fontWeight: '800' },
-  heroSub: { color: '#fff6f2', fontSize: 13 },
+  heroLabel: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  heroValue: { color: colors.text, fontSize: 40, fontWeight: '800' },
+  heroSub: { color: colors.text, fontSize: 13 },
   heroPending: {
-    color: '#ffffff',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
     marginTop: 6,

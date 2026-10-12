@@ -137,6 +137,54 @@ export const historySchema = z.object({
   days: z.array(daySummarySchema),
 });
 
+export const historyPeriodSchema = z.enum(['week', 'month', 'year']);
+export const historyPeriodQuerySchema = z.object({
+  period: historyPeriodSchema.default('week'),
+  anchor: dateKeySchema.optional(),
+});
+const historyPeriodBase = {
+  today: dateKeySchema,
+  from: dateKeySchema,
+  to: dateKeySchema,
+  totals: z.object({
+    loggedDays: z.number().int().nonnegative(),
+    averageKcal: z.number().int().nonnegative().nullable(),
+    donationYen: z.number().int().nonnegative(),
+    pendingYen: z.number().int().nonnegative(),
+  }),
+};
+export const historyDaySchema = daySummarySchema.extend({
+  mealCount: z.number().int().nonnegative(),
+});
+export const historyMonthSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  loggedDays: z.number().int().nonnegative(),
+  averageKcal: z.number().int().nonnegative().nullable(),
+  consumedKcal: z.number().int().nonnegative(),
+  donationYen: z.number().int().nonnegative(),
+  pendingYen: z.number().int().nonnegative(),
+  status: z.enum(['complete', 'partial', 'future']),
+});
+export const periodHistorySchema = z.discriminatedUnion('granularity', [
+  z.object({
+    ...historyPeriodBase,
+    granularity: z.literal('day'),
+    period: z.enum(['week', 'month']),
+    days: z.array(historyDaySchema),
+  }),
+  z.object({
+    ...historyPeriodBase,
+    granularity: z.literal('month'),
+    period: z.literal('year'),
+    months: z.array(historyMonthSchema).length(12),
+  }),
+]);
+export type HistoryPeriod = z.infer<typeof historyPeriodSchema>;
+export type HistoryPeriodQuery = z.input<typeof historyPeriodQuerySchema>;
+export type HistoryDay = z.infer<typeof historyDaySchema>;
+export type HistoryMonth = z.infer<typeof historyMonthSchema>;
+export type PeriodHistory = z.infer<typeof periodHistorySchema>;
+
 const mealTypeKcalSchema = z.object({
   breakfast: z.number().int(),
   lunch: z.number().int(),
