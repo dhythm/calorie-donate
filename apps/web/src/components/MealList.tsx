@@ -6,6 +6,7 @@ import {
   mealTypes,
   type Meal,
 } from '@calorie-donate/api';
+import { api } from '@/lib/api';
 
 export function MealList({
   meals,
@@ -40,20 +41,31 @@ export function MealList({
             <ul>
               {group.meals.map((meal) => (
                 <li key={meal.id} className="meal-row">
-                  <div className="meal-main">
-                    <span className="meal-name">
-                      {meal.source === 'photo' && (
-                        <span className="badge" title="写真から推定">
-                          写真
+                  <div className="meal-with-thumb">
+                    {meal.photoId && (
+                      // eslint-disable-next-line @next/next/no-img-element -- photo served by the API
+                      <img
+                        src={api.photoUrl(meal.photoId)}
+                        alt=""
+                        className="meal-thumb"
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="meal-main">
+                      <span className="meal-name">
+                        {meal.source === 'photo' && (
+                          <span className="badge" title="写真から推定">
+                            写真
+                          </span>
+                        )}
+                        {meal.name}
+                      </span>
+                      {meal.items.length > 0 && (
+                        <span className="meal-items">
+                          {meal.items.map((item) => item.name).join('・')}
                         </span>
                       )}
-                      {meal.name}
-                    </span>
-                    {meal.items.length > 0 && (
-                      <span className="meal-items">
-                        {meal.items.map((item) => item.name).join('・')}
-                      </span>
-                    )}
+                    </div>
                   </div>
                   <span className="meal-kcal">{formatKcal(meal.calories)}</span>
                   {editable && (

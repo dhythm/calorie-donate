@@ -65,6 +65,12 @@ test('estimates a photo, saves it and shows the provisional donation', async ({
     `このままだと ¥${over.toLocaleString('ja-JP')} を寄付します`,
   );
   await expect(page.getByText('写真', { exact: true })).toBeVisible();
+  // The uploaded photo is stored and shown as the meal's thumbnail.
+  const thumb = page.locator('img.meal-thumb');
+  await expect(thumb).toHaveCount(1);
+  expect(
+    await thumb.evaluate((img: HTMLImageElement) => img.naturalWidth),
+  ).toBe(8);
 });
 
 test('deletes a meal after confirmation', async ({ page }) => {
@@ -80,8 +86,20 @@ test('history, donations and settings pages render the saved state', async ({
   page,
 }) => {
   await page.goto('/history');
-  await expect(page.getByRole('heading', { name: '履歴' })).toBeVisible();
-  await expect(page.getByText('今日', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'グラフ' })).toBeVisible();
+  await expect(page.getByTestId('logging-streak')).toHaveText('1 日');
+  await expect(
+    page.getByRole('heading', { name: '毎日の摂取カロリー' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('grid', { name: '習慣カレンダー' }),
+  ).toBeVisible();
+  await page
+    .getByRole('img', { name: /摂取カロリーと目標/ })
+    .getByLabel(/^今日/)
+    .hover();
+  await expect(page.locator('.chart-tip')).toContainText('kcal');
+  await expect(page.getByText('今日', { exact: true }).first()).toBeVisible();
   await page.goto('/donations');
   await expect(page.getByTestId('ledger-total')).toHaveText('¥0');
   await expect(page.getByText('まだ確定した寄付はありません')).toBeVisible();
@@ -116,10 +134,18 @@ test('API validates meal and photo payloads', async ({ request }) => {
   });
   expect(meal.status()).toBe(400);
   expect((await meal.json()).error.code).toBe('INVALID_REQUEST');
-  const photo = await request.post('/api/meals/estimate', {
+  const photo = await request.post('/api/photos', {
     data: { mediaType: 'image/bmp', imageBase64: 'not base64!' },
   });
   expect(photo.status()).toBe(400);
+  const estimate = await request.post('/api/meals/estimate', {
+    data: { photoId: 'missing' },
+  });
+  expect(estimate.status()).toBe(400);
+  const missingPhoto = await request.get(
+    '/api/photos/00000000-0000-4000-8000-000000000000',
+  );
+  expect(missingPhoto.status()).toBe(404);
   const malformed = await request.put('/api/profile', {
     data: '{bad',
     headers: { 'Content-Type': 'application/json' },

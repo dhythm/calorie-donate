@@ -6,6 +6,9 @@ import {
   echoSchema,
   estimateRequestSchema,
   estimateSchema,
+  habitStatsSchema,
+  photoSchema,
+  photoUploadSchema,
   healthSchema,
   historySchema,
   mealInputSchema,
@@ -18,6 +21,9 @@ import {
   type DonationLedger,
   type Echo,
   type Estimate,
+  type HabitStats,
+  type Photo,
+  type PhotoUpload,
   type EstimateRequest,
   type Health,
   type History,
@@ -44,6 +50,7 @@ export class ApiClientError extends Error {
 
 /** Photo estimation calls a vision model, so it gets a longer budget. */
 const ESTIMATE_TIMEOUT_MS = 60_000;
+const UPLOAD_TIMEOUT_MS = 30_000;
 const deletedSchema = z.object({ deleted: z.literal(true) });
 
 /** Browser: empty same-origin base. Native: explicit HTTP(S) server origin. */
@@ -179,6 +186,17 @@ export function createApiClient({
         method: 'DELETE',
       });
     },
+    /** Store a meal photo; attach it to a meal with `photoId`. */
+    uploadPhoto: (input: PhotoUpload): Promise<Photo> =>
+      request(
+        '/api/photos',
+        photoSchema,
+        json('POST', photoUploadSchema.parse(input)),
+        Math.max(timeoutMs, UPLOAD_TIMEOUT_MS),
+      ),
+    /** Absolute (native) or same-origin (browser) URL of a stored photo. */
+    photoUrl: (id: string): string =>
+      `${baseUrl}/api/photos/${encodeURIComponent(id)}`,
     estimateMeal: (input: EstimateRequest): Promise<Estimate> =>
       request(
         '/api/meals/estimate',
@@ -186,6 +204,9 @@ export function createApiClient({
         json('POST', estimateRequestSchema.parse(input)),
         Math.max(timeoutMs, ESTIMATE_TIMEOUT_MS),
       ),
+    /** Habit charts: daily series, streaks and averages for the last N days. */
+    stats: (days = 84): Promise<HabitStats> =>
+      request(`/api/stats?days=${days}`, habitStatsSchema),
     donations: (): Promise<DonationLedger> =>
       request('/api/donations', donationLedgerSchema),
   };

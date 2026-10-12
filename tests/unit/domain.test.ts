@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  buildHabitStats,
   dateKeyInTimeZone,
   dateKeySchema,
   dateRange,
@@ -81,5 +82,60 @@ describe('donation calculation', () => {
       overKcal: 400,
       donationYen: 200,
     });
+  });
+});
+
+describe('habit stats', () => {
+  const day = (date: string, consumedKcal: number, mealCount = 1) => ({
+    date,
+    targetKcal: 2000,
+    consumedKcal,
+    overKcal: Math.max(0, consumedKcal - 2000),
+    donationYen: Math.max(0, consumedKcal - 2000),
+    mealCount,
+    byMealType: { breakfast: 0, lunch: consumedKcal, dinner: 0, snack: 0 },
+  });
+
+  it('keeps streaks alive while today is not logged yet', () => {
+    const stats = buildHabitStats('2026-10-12', [
+      day('2026-10-08', 1800),
+      day('2026-10-09', 0, 0),
+      day('2026-10-10', 1900),
+      day('2026-10-11', 1700),
+      day('2026-10-12', 0, 0),
+    ]);
+    expect(stats.streaks).toEqual({
+      currentLogging: 2,
+      bestLogging: 2,
+      currentWithinTarget: 2,
+      bestWithinTarget: 2,
+    });
+  });
+
+  it('breaks the target streak on an over day but not the logging streak', () => {
+    const stats = buildHabitStats('2026-10-12', [
+      day('2026-10-10', 1900),
+      day('2026-10-11', 2500),
+      day('2026-10-12', 1500),
+    ]);
+    expect(stats.streaks).toMatchObject({
+      currentLogging: 3,
+      currentWithinTarget: 1,
+      bestWithinTarget: 1,
+    });
+    expect(stats.summary).toEqual({
+      loggedDays: 3,
+      withinTargetDays: 2,
+      achievementRate: 2 / 3,
+      averageKcal: 1967,
+      donationYen: 500,
+    });
+    // 2026-10-10 is a Saturday.
+    expect(stats.weekdays[6]).toEqual({
+      weekday: 6,
+      averageKcal: 1900,
+      loggedDays: 1,
+    });
+    expect(stats.mealTypes.lunch).toBe(1967);
   });
 });

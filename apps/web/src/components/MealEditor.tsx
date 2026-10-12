@@ -60,6 +60,9 @@ export function MealEditor({
     meal?.source ?? 'manual',
   );
   const [preview, setPreview] = useState<string | null>(null);
+  const [photoId, setPhotoId] = useState<string | null>(meal?.photoId ?? null);
+  const [uploading, setUploading] = useState(false);
+  const attachInput = useRef<HTMLInputElement>(null);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [estimating, setEstimating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -83,7 +86,44 @@ export function MealEditor({
     total >= 0 &&
     total <= MEAL_KCAL_MAX &&
     itemsValid;
-  const showForm = mode === 'manual' || estimate !== null;
+  // After a failed estimate the photo stays attached for manual entry.
+  const showForm =
+    mode === 'manual' || estimate !== null || (photoId !== null && !estimating);
+  const photoSrc = preview ?? (photoId ? api.photoUrl(photoId) : null);
+
+  /** Resize and upload a photo; returns its id or null after an error. */
+  async function upload(file: File): Promise<string | null> {
+    let image;
+    try {
+      image = await prepareImage(file);
+    } catch {
+      setError('この画像は読み込めませんでした。別の写真を選んでください。');
+      return null;
+    }
+    setPreview(image.previewUrl);
+    try {
+      const photo = await api.uploadPhoto({
+        mediaType: image.mediaType,
+        imageBase64: image.imageBase64,
+      });
+      setPhotoId(photo.id);
+      return photo.id;
+    } catch (caught) {
+      setPreview(null);
+      setError(errorMessage(caught));
+      return null;
+    }
+  }
+
+  async function onAttach(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    await upload(file);
+    setUploading(false);
+  }
   const dates = [today, addDays(today, -1)];
 
   async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -93,20 +133,13 @@ export function MealEditor({
     setError(null);
     setEstimate(null);
     setEstimating(true);
-    let image;
-    try {
-      image = await prepareImage(file);
-    } catch {
+    const id = await upload(file);
+    if (!id) {
       setEstimating(false);
-      setError('この画像は読み込めませんでした。別の写真を選んでください。');
       return;
     }
-    setPreview(image.previewUrl);
     try {
-      const result = await api.estimateMeal({
-        mediaType: image.mediaType,
-        imageBase64: image.imageBase64,
-      });
+      const result = await api.estimateMeal({ photoId: id });
       setEstimate(result);
       setName(result.dishName);
       setItems(
@@ -139,6 +172,7 @@ export function MealEditor({
       calories: total,
       source,
       note: note.trim(),
+      photoId,
       items: items.map((item) => ({
         name: item.name.trim(),
         calories: toInt(item.calories),
@@ -378,6 +412,48 @@ export function MealEditor({
             </div>
           )}
 
+          <div className="field">
+            <span className="field-label">写真（任意）</span>
+            <div className="photo-attach">
+              {photoSrc && (
+                // eslint-disable-next-line @next/next/no-img-element -- user photo from the API or a data URL
+                <img src={photoSrc} alt="添付した食事の写真" />
+              )}
+              <input
+                ref={attachInput}
+                type="file"
+                accept="image/*"
+                className="visually-hidden"
+                onChange={onAttach}
+                aria-label="添付する写真を選択"
+                data-testid="attach-input"
+              />
+              <button
+                type="button"
+                className="button ghost"
+                onClick={() => attachInput.current?.click()}
+                disabled={uploading}
+              >
+                {uploading
+                  ? 'アップロード中…'
+                  : photoSrc
+                    ? '写真を変更'
+                    : '写真を添付'}
+              </button>
+              {photoSrc && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => {
+                    setPhotoId(null);
+                    setPreview(null);
+                  }}
+                >
+                  外す
+                </button>
+              )}
+            </div>
+          </div>
           <label className="field">
             <span className="field-label">メモ（任意）</span>
             <textarea
@@ -391,7 +467,7 @@ export function MealEditor({
             <button
               type="submit"
               className="button primary"
-              disabled={!valid || saving}
+              disabled={!valid || saving || uploading}
             >
               {saving ? '保存中…' : meal ? '変更を保存' : '記録する'}
             </button>

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -23,7 +24,6 @@ import {
   suggestMealType,
   type ApiClient,
   type Estimate,
-  type EstimateRequest,
   type Meal,
   type MealInput,
   type MealType,
@@ -43,8 +43,14 @@ import { describeError } from '../errors';
 import { colors, radius } from '../theme';
 
 type Mode = 'photo' | 'manual';
-type ImageMediaType = EstimateRequest['mediaType'];
-type Photo = { uri: string; base64: string; mediaType: ImageMediaType };
+type ImageMediaType = (typeof imageMediaTypes)[number];
+type PickedImage = { uri: string; base64: string; mediaType: ImageMediaType };
+type PickSource = 'camera' | 'library';
+/** Why a photo is picked: estimate calories from it, or just attach it. */
+type Purpose = 'estimate' | 'attach';
+/** Photo attached to the meal; `uri` is the local pick or the server URL. */
+type Attached = { id: string; uri: string };
+type Problem = { message: string; retry?: () => void; retryLabel?: string };
 type ItemRow = { key: number; name: string; kcal: string };
 
 const MAX_ITEMS = 20;
@@ -124,35 +130,74 @@ export function MealScreen({
         }))
       : [],
   );
-  const [photo, setPhoto] = useState<Photo | null>(null);
+  const [attached, setAttached] = useState<Attached | null>(() =>
+    meal?.photoId
+      ? { id: meal.photoId, uri: api.photoUrl(meal.photoId) }
+      : null,
+  );
+  const [uploading, setUploading] = useState(false);
+  const [choosingSource, setChoosingSource] = useState(false);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [estimating, setEstimating] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<Problem | null>(null);
+  const [attachError, setAttachError] = useState<Problem | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
 
-  async function runEstimate(target: Photo) {
+  const setProblem = (purpose: Purpose, problem: Problem | null) =>
+    purpose === 'estimate' ? setPhotoError(problem) : setAttachError(problem);
+
+  async function runEstimate(photoId: string) {
     setEstimating(true);
     setPhotoError(null);
     try {
-      const result = await api.estimateMeal({
-        mediaType: target.mediaType,
-        imageBase64: target.base64,
-      });
+      const result = await api.estimateMeal({ photoId });
       setEstimate(result);
       setName(result.dishName.trim().slice(0, 80));
       setRows(toRows(result.items));
     } catch (caught) {
-      setPhotoError(describeError(caught));
+      // The photo stays attached, so the user can still fill the form by hand.
+      setPhotoError({
+        message: describeError(caught),
+        retry: () => void runEstimate(photoId),
+        retryLabel: 'もう一度推定',
+      });
       onApiError(caught);
     } finally {
       setEstimating(false);
     }
   }
 
-  async function pickImage(source: 'camera' | 'library') {
-    setPhotoError(null);
+  async function uploadImage(image: PickedImage, purpose: Purpose) {
+    setUploading(true);
+    setProblem(purpose, null);
+    let photoId: string;
+    try {
+      const uploaded = await api.uploadPhoto({
+        mediaType: image.mediaType,
+        imageBase64: image.base64,
+      });
+      photoId = uploaded.id;
+    } catch (caught) {
+      setProblem(purpose, {
+        message: `写真をアップロードできませんでした。${describeError(caught)}`,
+        retry: () => void uploadImage(image, purpose),
+        retryLabel: 'もう一度アップロード',
+      });
+      onApiError(caught);
+      return;
+    } finally {
+      setUploading(false);
+    }
+    setAttached({ id: photoId, uri: image.uri });
+    if (purpose === 'estimate') await runEstimate(photoId);
+  }
+
+  async function pickImage(source: PickSource, purpose: Purpose) {
+    setChoosingSource(false);
+    setProblem(purpose, null);
+    let image: PickedImage;
     try {
       const permission =
         source === 'camera'
@@ -180,30 +225,33 @@ export function MealScreen({
       if (result.canceled) return;
       const asset = result.assets[0];
       if (!asset?.base64) {
-        setPhotoError('画像を読み込めませんでした。別の写真をお試しください。');
+        setProblem(purpose, {
+          message: '画像を読み込めませんでした。別の写真をお試しください。',
+        });
         return;
       }
       if (base64DecodedBytes(asset.base64) > IMAGE_MAX_BYTES) {
-        setPhotoError(
-          `画像が大きすぎます（上限 ${Math.round(IMAGE_MAX_BYTES / 1024 / 1024)}MB）。範囲を切り抜くか、別の写真をお試しください。`,
-        );
+        setProblem(purpose, {
+          message: `画像が大きすぎます（上限 ${Math.round(IMAGE_MAX_BYTES / 1024 / 1024)}MB）。範囲を切り抜くか、別の写真をお試しください。`,
+        });
         return;
       }
-      const picked: Photo = {
+      image = {
         uri: asset.uri,
         base64: asset.base64,
         mediaType: detectMediaType(asset.base64, asset.mimeType),
       };
-      setPhoto(picked);
-      setEstimate(null);
-      await runEstimate(picked);
     } catch {
-      setPhotoError(
-        source === 'camera'
-          ? 'カメラを起動できませんでした。ライブラリから選択するか、手入力をお試しください。'
-          : '写真ライブラリを開けませんでした。もう一度お試しください。',
-      );
+      setProblem(purpose, {
+        message:
+          source === 'camera'
+            ? 'カメラを起動できませんでした。ライブラリから選択するか、手入力をお試しください。'
+            : '写真ライブラリを開けませんでした。もう一度お試しください。',
+      });
+      return;
     }
+    if (purpose === 'estimate') setEstimate(null);
+    await uploadImage(image, purpose);
   }
 
   function updateRow(key: number, patch: Partial<Omit<ItemRow, 'key'>>) {
@@ -272,6 +320,7 @@ export function MealScreen({
             }))
           : [],
       note: note.trim(),
+      photoId: attached?.id ?? null,
     };
     setSaving(true);
     setSaveError(null);
@@ -289,6 +338,9 @@ export function MealScreen({
   }
 
   const showForm = mode === 'manual' || rows.length > 0 || estimate !== null;
+  const busy = uploading || estimating;
+  // New photo-mode meals preview the photo in the estimate card instead.
+  const showPhotoField = mode === 'manual' || meal !== null;
 
   return (
     <KeyboardAvoidingView
@@ -323,33 +375,35 @@ export function MealScreen({
         {mode === 'photo' ? (
           <Card>
             <SectionTitle>写真からカロリーを推定</SectionTitle>
-            {!photo && !estimating ? (
+            {!attached && !busy ? (
               <Text style={styles.help}>
                 料理全体が写るように撮影すると、AI
                 が品目ごとのカロリーを推定します。推定結果はあとから修正できます。
               </Text>
             ) : null}
-            {photo ? (
+            {attached && !meal ? (
               <Image
-                source={{ uri: photo.uri }}
+                source={{ uri: attached.uri }}
                 style={styles.preview}
                 resizeMode="cover"
                 accessibilityLabel="選択した料理の写真"
               />
             ) : null}
-            {estimating ? (
+            {uploading ? (
+              <Loading label="写真をアップロードしています…" />
+            ) : estimating ? (
               <Loading label="カロリーを推定しています…" />
             ) : (
               <View style={styles.pickRow}>
                 <Button
                   title="カメラで撮影"
-                  onPress={() => void pickImage('camera')}
+                  onPress={() => void pickImage('camera', 'estimate')}
                   style={styles.pickButton}
-                  variant={photo ? 'secondary' : 'primary'}
+                  variant={attached ? 'secondary' : 'primary'}
                 />
                 <Button
                   title="ライブラリから選択"
-                  onPress={() => void pickImage('library')}
+                  onPress={() => void pickImage('library', 'estimate')}
                   style={styles.pickButton}
                   variant="secondary"
                 />
@@ -357,18 +411,16 @@ export function MealScreen({
             )}
             {photoError ? (
               <Notice
-                message={photoError}
-                onRetry={
-                  photo && !estimating
-                    ? () => void runEstimate(photo)
-                    : undefined
-                }
-                retryLabel="もう一度推定"
+                message={photoError.message}
+                onRetry={busy ? undefined : photoError.retry}
+                retryLabel={photoError.retryLabel}
               />
             ) : null}
             {photoError ? (
               <Button
-                title="手入力で記録する"
+                title={
+                  attached ? '写真を添付したまま手入力する' : '手入力で記録する'
+                }
                 variant="ghost"
                 compact
                 onPress={() => setMode('manual')}
@@ -483,6 +535,80 @@ export function MealScreen({
                 error={showErrors ? kcalError : null}
               />
             )}
+            {showPhotoField ? (
+              <View style={styles.group}>
+                <Text style={styles.fieldLabel}>写真（任意）</Text>
+                <View style={styles.attachRow}>
+                  {attached ? (
+                    <Image
+                      source={{ uri: attached.uri }}
+                      style={styles.thumbnail}
+                      resizeMode="cover"
+                      accessibilityLabel="添付した料理の写真"
+                    />
+                  ) : null}
+                  {uploading ? (
+                    <View
+                      style={styles.uploading}
+                      accessibilityLiveRegion="polite"
+                    >
+                      <ActivityIndicator color={colors.primary} />
+                      <Text style={styles.help}>アップロード中…</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.attachActions}>
+                      <Button
+                        title={attached ? '写真を変更' : '写真を添付'}
+                        variant="secondary"
+                        compact
+                        disabled={estimating}
+                        onPress={() => setChoosingSource((open) => !open)}
+                        accessibilityHint="カメラかライブラリを選べます"
+                      />
+                      {attached ? (
+                        <Button
+                          title="外す"
+                          variant="ghost"
+                          compact
+                          disabled={estimating}
+                          onPress={() => {
+                            setAttached(null);
+                            setAttachError(null);
+                            setChoosingSource(false);
+                          }}
+                          accessibilityLabel="写真を外す"
+                        />
+                      ) : null}
+                    </View>
+                  )}
+                </View>
+                {choosingSource && !uploading ? (
+                  <View style={styles.pickRow}>
+                    <Button
+                      title="ライブラリから選択"
+                      variant="ghost"
+                      compact
+                      onPress={() => void pickImage('library', 'attach')}
+                      style={styles.pickButton}
+                    />
+                    <Button
+                      title="カメラで撮影"
+                      variant="ghost"
+                      compact
+                      onPress={() => void pickImage('camera', 'attach')}
+                      style={styles.pickButton}
+                    />
+                  </View>
+                ) : null}
+                {attachError ? (
+                  <Notice
+                    message={attachError.message}
+                    onRetry={busy ? undefined : attachError.retry}
+                    retryLabel={attachError.retryLabel}
+                  />
+                ) : null}
+              </View>
+            ) : null}
             <View style={styles.group}>
               <Text style={styles.fieldLabel}>食事の種類</Text>
               <Segmented
@@ -530,7 +656,7 @@ export function MealScreen({
               }
               onPress={() => void save()}
               loading={saving}
-              disabled={estimating}
+              disabled={busy}
             />
           </Card>
         ) : null}
@@ -557,6 +683,15 @@ const styles = StyleSheet.create({
   },
   pickRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   pickButton: { flexGrow: 1, flexBasis: 140 },
+  uploading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  attachRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  attachActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 },
+  thumbnail: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
+  },
   estimateInfo: { gap: 6 },
   estimateMeta: { color: colors.text, fontSize: 14, fontWeight: '600' },
   items: { gap: 8 },

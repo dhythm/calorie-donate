@@ -15,11 +15,25 @@ import {
   type ApiClient,
   type DaySummary,
 } from '@calorie-donate/api';
-import { Badge, Loading, Notice, ProgressBar } from '../components';
+import {
+  Badge,
+  Loading,
+  Notice,
+  ProgressBar,
+  SectionTitle,
+} from '../components';
+import {
+  DailyChart,
+  HabitCalendar,
+  MealTypeBars,
+  StatTiles,
+  WeekdayBars,
+} from '../HabitCharts';
 import { useRemote } from '../useRemote';
 import { colors, radius } from '../theme';
 
 const HISTORY_DAYS = 30;
+const STATS_DAYS = 84;
 
 export function HistoryScreen({
   api,
@@ -30,36 +44,45 @@ export function HistoryScreen({
   today: string;
   onSelectDay: (date: string) => void;
 }) {
-  const fetchDays = useCallback(
-    () =>
-      api
-        .history(HISTORY_DAYS)
-        .then((result) =>
-          [...result.days].sort((a, b) => b.date.localeCompare(a.date)),
-        ),
-    [api],
-  );
-  const {
-    data: days,
-    error,
-    refreshing,
-    reload,
-    refresh,
-  } = useRemote(fetchDays);
+  const fetchData = useCallback(async () => {
+    const [stats, history] = await Promise.all([
+      api.stats(STATS_DAYS),
+      api.history(HISTORY_DAYS),
+    ]);
+    const days = [...history.days].sort((a, b) => b.date.localeCompare(a.date));
+    return { stats, days };
+  }, [api]);
+  const { data, error, refreshing, reload, refresh } = useRemote(fetchData);
 
   const header = (
     <View style={styles.header}>
       <Text style={styles.title} accessibilityRole="header">
-        履歴
+        グラフ
       </Text>
       <Text style={styles.subtitle}>
-        直近{HISTORY_DAYS}日間。今日と昨日は「暫定」、それより前は「確定」です。
+        直近{STATS_DAYS / 7}週間の記録の習慣と、日ごとの記録です。
       </Text>
       {error ? <Notice message={error} onRetry={reload} /> : null}
+      {data ? (
+        <View style={styles.charts}>
+          <StatTiles stats={data.stats} />
+          <DailyChart stats={data.stats} />
+          <HabitCalendar stats={data.stats} />
+          <WeekdayBars stats={data.stats} />
+          <MealTypeBars stats={data.stats} />
+          <View style={styles.listHeader}>
+            <SectionTitle>日ごとの記録</SectionTitle>
+            <Text style={styles.subtitle}>
+              直近{HISTORY_DAYS}
+              日間。今日と昨日は「暫定」、それより前は「確定」です。
+            </Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 
-  if (!days) {
+  if (!data) {
     return (
       <View style={styles.flex}>
         <View style={styles.padded}>{header}</View>
@@ -70,7 +93,7 @@ export function HistoryScreen({
 
   return (
     <FlatList
-      data={days}
+      data={data.days}
       keyExtractor={(day) => day.date}
       contentContainerStyle={styles.list}
       ListHeaderComponent={header}
@@ -162,6 +185,8 @@ const styles = StyleSheet.create({
   padded: { padding: 20 },
   list: { padding: 20, paddingBottom: 40 },
   header: { gap: 6, marginBottom: 16 },
+  charts: { gap: 16, marginTop: 10 },
+  listHeader: { gap: 4, marginTop: 8 },
   title: { color: colors.text, fontSize: 24, fontWeight: '800' },
   subtitle: { color: colors.muted, fontSize: 13, lineHeight: 19 },
   empty: { color: colors.muted, textAlign: 'center', padding: 32 },

@@ -79,6 +79,8 @@ export const mealInputSchema = z.object({
   source: mealSourceSchema.default('manual'),
   items: z.array(mealItemSchema).max(20).default([]),
   note: z.string().trim().max(200).default(''),
+  /** Uploaded meal photo (see `POST /api/photos`). */
+  photoId: z.uuid().nullable().default(null),
 });
 export const mealSchema = mealInputSchema.extend({
   id: z.string().min(1),
@@ -135,6 +137,53 @@ export const historySchema = z.object({
   days: z.array(daySummarySchema),
 });
 
+const mealTypeKcalSchema = z.object({
+  breakfast: z.number().int(),
+  lunch: z.number().int(),
+  dinner: z.number().int(),
+  snack: z.number().int(),
+});
+export const habitDaySchema = z.object({
+  date: dateKeySchema,
+  targetKcal: z.number().int(),
+  consumedKcal: z.number().int(),
+  overKcal: z.number().int(),
+  donationYen: z.number().int(),
+  mealCount: z.number().int(),
+  byMealType: mealTypeKcalSchema,
+});
+export const habitStatsSchema = z.object({
+  today: dateKeySchema,
+  /** Oldest first. */
+  days: z.array(habitDaySchema),
+  streaks: z.object({
+    /** Consecutive days with at least one meal logged, up to today. */
+    currentLogging: z.number().int(),
+    bestLogging: z.number().int(),
+    /** Consecutive logged days at or under target, up to today. */
+    currentWithinTarget: z.number().int(),
+    bestWithinTarget: z.number().int(),
+  }),
+  summary: z.object({
+    loggedDays: z.number().int(),
+    withinTargetDays: z.number().int(),
+    /** Share of logged days at or under target, 0–1. */
+    achievementRate: z.number(),
+    averageKcal: z.number().int(),
+    donationYen: z.number().int(),
+  }),
+  /** Index 0 = Sunday. Averages over logged days. */
+  weekdays: z.array(
+    z.object({
+      weekday: z.number().int().min(0).max(6),
+      averageKcal: z.number().int(),
+      loggedDays: z.number().int(),
+    }),
+  ),
+  /** Average kcal per logged day for each meal type. */
+  mealTypes: mealTypeKcalSchema,
+});
+
 export const imageMediaTypes = [
   'image/jpeg',
   'image/png',
@@ -143,7 +192,7 @@ export const imageMediaTypes = [
 ] as const;
 /** 5 MB decoded image, the Claude API per-image limit. */
 export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-export const estimateRequestSchema = z.object({
+export const photoUploadSchema = z.object({
   mediaType: z.enum(imageMediaTypes),
   /** Base64 without a `data:` prefix. */
   imageBase64: z
@@ -152,6 +201,14 @@ export const estimateRequestSchema = z.object({
     .max(Math.ceil(IMAGE_MAX_BYTES / 3) * 4)
     .regex(/^[A-Za-z0-9+/]+={0,2}$/, 'imageBase64 must be base64'),
 });
+export const photoSchema = z.object({
+  id: z.uuid(),
+  contentType: z.enum(imageMediaTypes),
+  byteSize: z.number().int(),
+  createdAt: z.string(),
+});
+/** Estimate calories for a photo already uploaded with `POST /api/photos`. */
+export const estimateRequestSchema = z.object({ photoId: z.uuid() });
 export const estimateSchema = z.object({
   provider: z.enum(['claude', 'mock']),
   dishName: z.string(),
@@ -174,6 +231,10 @@ export type DonationTotals = z.infer<typeof donationTotalsSchema>;
 export type DonationLedger = z.infer<typeof donationLedgerSchema>;
 export type Overview = z.infer<typeof overviewSchema>;
 export type History = z.infer<typeof historySchema>;
+export type HabitDay = z.infer<typeof habitDaySchema>;
+export type HabitStats = z.infer<typeof habitStatsSchema>;
+export type PhotoUpload = z.infer<typeof photoUploadSchema>;
+export type Photo = z.infer<typeof photoSchema>;
 export type EstimateRequest = z.infer<typeof estimateRequestSchema>;
 export type Estimate = z.infer<typeof estimateSchema>;
 export type Health = z.infer<typeof healthSchema>;

@@ -12,11 +12,27 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Unit tests run on PGlite and on this real PostgreSQL server.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: calorie
+          POSTGRES_PASSWORD: calorie
+          POSTGRES_DB: calorie_donate_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U calorie -d calorie_donate_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
     env:
       CI: 'true'
       NEXT_TELEMETRY_DISABLED: '1'
       EXPO_NO_TELEMETRY: '1'
       EXPO_PUBLIC_API_URL: http://localhost:3000
+      TEST_DATABASE_URL: postgres://calorie:calorie@localhost:5432/calorie_donate_test
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
@@ -31,6 +47,12 @@ jobs:
       - run: pnpm knip
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Migrations apply with drizzle-kit
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: postgres://calorie:calorie@localhost:5432/calorie_donate_test
+      - name: Migrations match the schema
+        run: pnpm db:generate && test -z "$(git status --porcelain apps/web/drizzle)"
       - run: pnpm build
       - run: pnpm expo:check
       - run: pnpm expo:export

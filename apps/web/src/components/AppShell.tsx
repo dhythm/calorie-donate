@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 const links = [
   { href: '/', label: 'ホーム', icon: '◎' },
   { href: '/meals/new', label: '記録', icon: '＋' },
-  { href: '/history', label: '履歴', icon: '▤' },
+  { href: '/history', label: 'グラフ', icon: '▥' },
   { href: '/donations', label: '寄付', icon: '♡' },
   { href: '/settings', label: '設定', icon: '⚙' },
 ];

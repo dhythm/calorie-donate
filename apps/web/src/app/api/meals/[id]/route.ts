@@ -6,20 +6,20 @@ type Context = RouteContext<'/api/meals/[id]'>;
 
 export async function GET(_request: Request, { params }: Context) {
   const { id } = await params;
-  return handle(() => getService().meal(id));
+  return handle(async () => (await getService()).meal(id));
 }
 
 export async function PUT(request: Request, { params }: Context) {
   const { id } = await params;
   return handle(async () =>
-    getService().updateMeal(id, (await readJson(request)) as MealInput),
+    (await getService()).updateMeal(id, (await readJson(request)) as MealInput),
   );
 }
 
 export async function DELETE(_request: Request, { params }: Context) {
   const { id } = await params;
   return handle(async () => {
-    await getService().deleteMeal(id);
+    await (await getService()).deleteMeal(id);
     return { deleted: true };
   });
 }

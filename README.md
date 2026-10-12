@@ -29,14 +29,30 @@ tests          単体テスト（計算・サービス・写真推定）/ 実際
 
 ### 写真からのカロリー推定
 
-`POST /api/meals/estimate` に画像（JPEG / PNG / WebP / GIF、5 MB 以下、base64）を送ると、品目ごとの kcal・合計・確からしさ・前提メモを返します。保存はユーザーが内容を確認してから行います。Web はブラウザで長辺 1,568px の JPEG に縮小してから送ります。
+アップロードした写真の ID を `POST /api/meals/estimate` に送ると、品目ごとの kcal・合計・確からしさ・前提メモを返します。保存はユーザーが内容を確認してから行います。Web はブラウザで長辺 1,568px の JPEG に縮小してから送ります。
 
 - `ANTHROPIC_API_KEY` があれば Claude（既定 `claude-opus-5-5`、`CALORIE_ESTIMATOR_MODEL` で変更可）の画像認識で推定します。構造化出力でスキーマを固定し、料理が写っていない写真は `NOT_FOOD` を返します。
 - キーがない、または `CALORIE_ESTIMATOR=mock` のときは、写真を解析しない **サンプル推定**（`provider: "mock"`）を返し、画面にもその旨を表示します。ローカル開発・CI・E2E はこちらを使います。
 
-### データの保存
+### データベース（PostgreSQL）
 
-現在は単一ユーザー前提で、サーバーの JSON ファイル（既定 `apps/web/.data/calorie-donate.json`、`CALORIE_DONATE_DATA_FILE` で変更）に保存します。書き込みはプロセス内で直列化し、一時ファイルからの置き換えで行います。ログイン・複数ユーザー・DB は次の段階で導入する想定で、`src/server/store.ts` の `Store` インターフェースを差し替えれば移行できます。サーバーレス環境ではファイルが永続化されないため、そのまま本番運用はできません。
+データは PostgreSQL に保存します（Drizzle ORM。スキーマ `apps/web/src/server/db/schema.ts`、マイグレーション `apps/web/drizzle/`）。同じスキーマとマイグレーションを、次の 3 つの環境で使います。
+
+| 環境                     | 接続先                                          | 設定                                                                                                              |
+| ------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| ローカル開発             | Docker の PostgreSQL 17（`compose.yaml`）       | `pnpm db:up` のあと `DATABASE_URL=postgres://calorie:calorie@localhost:5432/calorie_donate`                       |
+| 本番                     | Neon などのマネージド PostgreSQL                | Neon の接続文字列（`?sslmode=require` 付き、サーバーレス環境では pooled 接続）を `DATABASE_URL` に設定            |
+| エージェント・素早い確認 | PGlite（WASM の PostgreSQL をプロセス内で実行） | `DATABASE_URL` を **設定しない**。データは `apps/web/.data/pglite`（`PGLITE_DATA_DIR`、`memory://` でメモリのみ） |
+
+- `DATABASE_URL` があれば node-postgres で接続し、なければ PGlite を使います。DB プロセスを起動しなくても `pnpm dev:web` やテストがそのまま動きます。
+- 起動後の最初のアクセス（`/api/health` を含む）で未適用のマイグレーションを当てます。本番では、デプロイ時に `DATABASE_URL=... pnpm db:migrate` を実行し、`DATABASE_AUTO_MIGRATE=false` にして自動適用を止めることを推奨します。
+- スキーマを変えたら `pnpm db:generate` でマイグレーションを作ってコミットします。CI はスキーマとマイグレーションの食い違いを検出します。
+- どのテーブルにも `user_id` があり、今は単一ユーザー（`local`）です。ログイン導入時はこの値を認証ユーザーに置き換えます。
+- PGlite のデータディレクトリは 1 プロセスからしか開けません。同じディレクトリで dev サーバーを 2 つ起動しないでください。
+
+### 写真の保存
+
+食事の写真は `POST /api/photos`（base64、5 MB 以下）で保存し、食事の `photoId` に紐づけます。形式はファイル先頭のバイトで判定し（JPEG / PNG / WebP / GIF 以外は拒否）、`GET /api/photos/:id` で配信します。写真推定はアップロード済みの写真 ID を渡して行うので、画像を 2 回送ることはありません。食事を削除するか写真を差し替えると古い写真も削除され、食事に紐づかないまま 1 日たった写真は次のアップロード時に削除されます。現在は DB（`bytea`）に保存しています。写真が増えたら、オブジェクトストレージ（S3、Vercel Blob など）へ移す想定です。
 
 ## 採用バージョン
 
@@ -100,12 +116,14 @@ HTTP はローカル開発用です。独自のネイティブ開発ビルドで
 
 ### サーバーの環境変数（`apps/web/.env.local`）
 
-| 変数                       | 既定                        | 内容                               |
-| -------------------------- | --------------------------- | ---------------------------------- |
-| `ANTHROPIC_API_KEY`        | なし                        | 設定すると写真推定に Claude を使う |
-| `CALORIE_ESTIMATOR_MODEL`  | `claude-opus-5-5`           | 推定に使うモデル                   |
-| `CALORIE_ESTIMATOR`        | —                           | `mock` でサンプル推定に固定        |
-| `CALORIE_DONATE_DATA_FILE` | `.data/calorie-donate.json` | データファイルの場所               |
+| 変数                      | 既定                  | 内容                                       |
+| ------------------------- | --------------------- | ------------------------------------------ |
+| `ANTHROPIC_API_KEY`       | なし                  | 設定すると写真推定に Claude を使う         |
+| `CALORIE_ESTIMATOR_MODEL` | `claude-opus-5-5`     | 推定に使うモデル                           |
+| `CALORIE_ESTIMATOR`       | —                     | `mock` でサンプル推定に固定                |
+| `DATABASE_URL`            | なし（PGlite を使用） | PostgreSQL の接続文字列                    |
+| `PGLITE_DATA_DIR`         | `.data/pglite`        | PGlite のデータ置き場（`memory://` 可）    |
+| `DATABASE_AUTO_MIGRATE`   | `true`                | `false` で起動時のマイグレーションを止める |
 
 ## 検証
 
@@ -128,6 +146,6 @@ pnpm expo:export    # iOS / Android の production JS bundle（ネイティブ�
 pnpm test:e2e      # build 済み Next.js を 127.0.0.1:3100 で起動
 ```
 
-Vitest は共有クライアント、日付・寄付計算、サービス（確定処理・編集制限・永続化・同時書き込み）、写真推定（Claude 応答の整形・失敗時の扱い・サンプル推定）を検証します。Playwright は空のデータファイルとサンプル推定でサーバーを起動し、初期設定 → 手入力 → 編集 → 写真推定 → 削除 → 履歴・寄付・設定の一連の流れ、モバイルと同じ絶対 URL クライアントからの実 API 通信、API の入力エラーを検証します。GitHub Actions は frozen install と上記チェックを毎 PR 実行します。
+Vitest は共有クライアント、日付・寄付計算・習慣集計、サービス（確定処理・編集制限・写真・習慣集計・同時書き込み。PGlite で常に、`TEST_DATABASE_URL` があれば実際の PostgreSQL でも）、写真推定（Claude 応答の整形・失敗時の扱い・サンプル推定）を検証します。Playwright はメモリ上の PGlite とサンプル推定でサーバーを起動し、初期設定 → 手入力 → 編集 → 写真推定 → 削除 → 履歴・寄付・設定の一連の流れ、モバイルと同じ絶対 URL クライアントからの実 API 通信、API の入力エラーを検証します。GitHub Actions は frozen install と上記チェックを毎 PR 実行します。
 
 Expo export / 型チェックはネイティブ端末での実行を保証しません。OS のネットワーク制約や実機 LAN 接続の確認は、上記の起動手順で端末を使って行います。ネイティブ配布ビルド、EAS、DB、認証、クラウドリソースは今回の範囲に含めていません。
