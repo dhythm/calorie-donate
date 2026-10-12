@@ -1,0 +1,38 @@
+{
+  "name": "calorie-donate",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.34.7",
+  "engines": {
+    "node": ">=24.13.0 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:web": "pnpm --filter @calorie-donate/web dev",
+    "dev:mobile": "pnpm --filter @calorie-donate/mobile dev",
+    "lint": "eslint . && pnpm --filter \"./apps/*\" -r lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "knip": "knip",
+    "typecheck": "tsc --noEmit && pnpm -r typecheck",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "build": "pnpm --filter @calorie-donate/web build",
+    "expo:check": "pnpm --filter @calorie-donate/mobile exec expo install --check && expo-doctor apps/mobile",
+    "expo:export": "pnpm --filter @calorie-donate/mobile export",
+    "check": "pnpm lint && pnpm format:check && pnpm knip && pnpm typecheck && pnpm test && pnpm build && pnpm expo:check && pnpm expo:export && pnpm test:e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "typescript-eslint": "8.71.1",
+    "typescript": "6.0.3",
+    "@types/node": "24.19.2",
+    "prettier": "3.9.10",
+    "knip": "6.41.0",
+    "vitest": "5.0.4",
+    "@playwright/test": "1.64.0",
+    "expo-doctor": "1.20.4"
+  },
+  "type": "module"
+}
